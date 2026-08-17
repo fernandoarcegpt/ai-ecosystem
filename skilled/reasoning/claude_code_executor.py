@@ -137,12 +137,42 @@ class ClaudeCodeExecutor:
         result = envelope.get("structured_output") or {}
         if not isinstance(result, dict):
             result = {}
-        return {
+        permission_denials = envelope.get("permission_denials") or []
+        envelope_error = bool(envelope.get("is_error"))
+        response = {
             **result,
-            "success": bool(result.get("completed")),
+            "success": bool(result.get("completed"))
+            and not envelope_error
+            and not permission_denials,
             "session_id": envelope.get("session_id"),
             "cost_usd": envelope.get("total_cost_usd"),
+            "permission_denials": permission_denials,
+            "terminal_reason": envelope.get("terminal_reason"),
         }
+        if envelope_error:
+            response.update(
+                success=False,
+                completed=False,
+                tests_passed=False,
+                error="claude_code_reported_error",
+                evidence=[str(envelope.get("result") or "Claude reportó un error")],
+            )
+        elif permission_denials:
+            response.update(
+                success=False,
+                completed=False,
+                tests_passed=False,
+                error="claude_code_permission_denied",
+            )
+        elif not result:
+            response.update(
+                success=False,
+                completed=False,
+                tests_passed=False,
+                error="claude_code_missing_structured_output",
+                evidence=[str(envelope.get("result") or "Sin salida estructurada")],
+            )
+        return response
 
 
 def create_claude_code_executor(

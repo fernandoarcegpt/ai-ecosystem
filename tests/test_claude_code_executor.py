@@ -51,3 +51,62 @@ def test_claude_code_executor_fails_explicitly_when_binary_is_missing(tmp_path):
     result = executor(_task("implementation", task_type="implementation"))
     assert result["success"] is False
     assert result["error"] == "claude_code_unavailable"
+
+
+def test_claude_code_executor_rejects_error_envelope(tmp_path):
+    fake_claude = tmp_path / "claude-error"
+    payload = {
+        "is_error": True,
+        "result": "Failed to authenticate",
+        "session_id": "session-error",
+        "permission_denials": [],
+        "structured_output": {
+            "completed": True,
+            "tests_passed": True,
+            "summary": "No debe aceptarse",
+            "evidence": ["declaración no confiable"],
+        },
+    }
+    fake_claude.write_text(
+        "#!/usr/bin/env python3\n"
+        f"print({json.dumps(json.dumps(payload))})\n",
+        encoding="utf-8",
+    )
+    fake_claude.chmod(0o755)
+
+    result = ClaudeCodeExecutor(
+        str(tmp_path), binary=str(fake_claude), timeout_seconds=5
+    )(_task("implementation", task_type="implementation"))
+
+    assert result["success"] is False
+    assert result["completed"] is False
+    assert result["error"] == "claude_code_reported_error"
+
+
+def test_claude_code_executor_rejects_permission_denials(tmp_path):
+    fake_claude = tmp_path / "claude-denied"
+    payload = {
+        "is_error": False,
+        "session_id": "session-denied",
+        "permission_denials": [{"tool": "Write"}],
+        "structured_output": {
+            "completed": True,
+            "tests_passed": True,
+            "summary": "No debe aceptarse",
+            "evidence": ["escritura denegada"],
+        },
+    }
+    fake_claude.write_text(
+        "#!/usr/bin/env python3\n"
+        f"print({json.dumps(json.dumps(payload))})\n",
+        encoding="utf-8",
+    )
+    fake_claude.chmod(0o755)
+
+    result = ClaudeCodeExecutor(
+        str(tmp_path), binary=str(fake_claude), timeout_seconds=5
+    )(_task("implementation", task_type="implementation"))
+
+    assert result["success"] is False
+    assert result["completed"] is False
+    assert result["error"] == "claude_code_permission_denied"
