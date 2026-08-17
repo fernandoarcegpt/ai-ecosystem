@@ -8,6 +8,8 @@ from typing import Any, Callable, Dict, Optional
 
 from reasoning.claude_code_executor import ClaudeCodeExecutor
 from reasoning.task_router import Task
+from sharememory.hermes_memory.knowledge_broker import KnowledgeBroker
+from sharememory.hermes_memory.work_memory import WorkMemoryRecorder
 
 from .autonomous_orchestrator import AgentRegistry, AutonomousOrchestrator
 
@@ -37,6 +39,11 @@ def run_from_hermes(
     repository = Path(
         repository_path or os.getenv("HERMES_AUTONOMY_REPOSITORY") or "."
     ).expanduser().resolve()
+    selected_state = Path(
+        state_dir
+        or os.getenv("HERMES_AUTONOMY_STATE_DIR")
+        or (Path.home() / ".hermes" / "state" / "ai-ecosystem")
+    ).expanduser().resolve()
     selected_executor = executor or ClaudeCodeExecutor(str(repository))
     registry = AgentRegistry()
     # Claude Code is an external worker. Task-type aliases allow the same
@@ -54,9 +61,13 @@ def run_from_hermes(
             task_types=task_types,
             external=True,
         )
+    memory = WorkMemoryRecorder(
+        KnowledgeBroker(str(selected_state / "memory"))
+    )
     return AutonomousOrchestrator(
         registry,
-        state_dir=state_dir or os.getenv("HERMES_AUTONOMY_STATE_DIR"),
+        state_dir=str(selected_state),
+        memory_recorder=memory,
     ).run(objective, {"persist": True})
 
 

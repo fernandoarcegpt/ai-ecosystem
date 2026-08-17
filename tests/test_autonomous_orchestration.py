@@ -55,6 +55,7 @@ def test_hermes_bridge_requires_explicit_command_and_executes_all_stages(tmp_pat
         executor=_verified_executor,
     )
     assert result["task_report"]["status_distribution"]["completed"] == 4
+    assert (tmp_path / "state" / "memory" / "memory.json").is_file()
 
 
 def test_improvement_feedback_is_automatically_connected(tmp_path):
