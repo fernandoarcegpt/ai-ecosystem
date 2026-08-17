@@ -60,11 +60,18 @@ class RouteDecision:
 class TaskRouter:
     """Planifica, enruta, ejecuta y reanuda tareas verificables."""
 
-    def __init__(self, store_path: Optional[str] = None, memory_recorder: Optional[Any] = None, human_gate: Optional[Any] = None):
+    def __init__(
+        self,
+        store_path: Optional[str] = None,
+        memory_recorder: Optional[Any] = None,
+        human_gate: Optional[Any] = None,
+        executors: Optional[Dict[str, Callable[[Task], Any]]] = None,
+    ):
         selected = store_path or os.getenv("HERMES_TASK_STORE")
         self.store_path = Path(selected).expanduser() if selected else None
         self.memory_recorder = memory_recorder
         self.human_gate = human_gate
+        self.executors = dict(executors or {})
         self.swarm_config = self._default_swarm_config()
 
     @staticmethod
@@ -181,12 +188,40 @@ class TaskRouter:
             payload = json.load(handle)
         return [self._deserialize_task(item) for item in payload.get("tasks", [])]
 
-    def mark_blocked(self, task: Task, reason: str, required_action: str) -> Dict[str, Any]:
+    def mark_blocked(
+        self,
+        task: Task,
+        reason: str,
+        required_action: str,
+        *,
+        evidence: Optional[List[str]] = None,
+        alternatives: Optional[List[str]] = None,
+        risks: Optional[List[str]] = None,
+        automatic_next: Optional[str] = None,
+        category: str = "execution",
+        request_human_review: bool = True,
+    ) -> Dict[str, Any]:
+        previous_status = task.status.value
         task.status = TaskStatus.BLOCKED
         task.updated_at = _now()
-        block = {"task_id": task.id, "reason": reason, "required_action": required_action, "blocked_at": task.updated_at}
+        block = {
+            "task_id": task.id,
+            "category": category,
+            "reason": reason,
+            "evidence": list(evidence or [reason]),
+            "alternatives": list(alternatives or [required_action]),
+            "risks": list(
+                risks
+                or ["La tarea y cualquier dependiente no podrán completarse"]
+            ),
+            "required_action": required_action,
+            "automatic_next": automatic_next
+            or "Reintentar automáticamente al volver a ejecutar el plan",
+            "state_reached": previous_status,
+            "blocked_at": task.updated_at,
+        }
         task.metadata["human_block"] = block
-        if self.human_gate is not None:
+        if request_human_review and self.human_gate is not None:
             review = self.human_gate.submit_for_review(task.description, actor="task-router", metadata={"task_id": task.id, "reason": reason})
             block["review_id"] = review.review_id
         return block
@@ -197,23 +232,118 @@ class TaskRouter:
         task.status = TaskStatus.PROPOSED
         task.updated_at = _now()
 
-    def execute_available(self, tasks: List[Task], executors: Dict[str, Callable[[Task], Any]], verifier: Optional[Callable[[Task, Any], Dict[str, Any]]] = None) -> Dict[str, Any]:
-        """Ejecuta tareas listas; conserva bloqueos y permite reanudar después."""
+    def _refresh_blocked_tasks(self, tasks: List[Task]) -> bool:
+        """Reanudar bloqueos que ya tienen una resolución comprobable."""
         by_id = {task.id: task for task in tasks}
+        changed = False
+
+        for task in tasks:
+            if task.status != TaskStatus.BLOCKED:
+                continue
+            block = task.metadata.get("human_block", {})
+
+            if block.get("category") == "dependency":
+                dependencies = [by_id.get(dep) for dep in task.dependencies]
+                if dependencies and all(
+                    dependency is not None
+                    and dependency.status == TaskStatus.COMPLETED
+                    for dependency in dependencies
+                ):
+                    self.resolve_block(
+                        task,
+                        "Las dependencias terminaron correctamente",
+                    )
+                    changed = True
+                continue
+
+            review_id = block.get("review_id")
+            if not review_id or self.human_gate is None:
+                continue
+            review = self.human_gate.get_review_by_id(review_id)
+            if review is None:
+                continue
+            if review.status == "approved":
+                self.resolve_block(
+                    task,
+                    review.reason or "Aprobado por revisión humana",
+                )
+                changed = True
+            elif review.status == "rejected":
+                block["human_decision"] = {
+                    "status": "rejected",
+                    "reason": review.reason,
+                }
+                block["automatic_next"] = (
+                    "No se reanudará hasta recibir una nueva resolución explícita"
+                )
+
+        return changed
+
+    def execute_available(
+        self,
+        tasks: List[Task],
+        executors: Optional[Dict[str, Callable[[Task], Any]]] = None,
+        verifier: Optional[Callable[[Task, Any], Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Ejecuta tareas listas; conserva bloqueos y permite reanudar después."""
+        available_executors = {**self.executors, **(executors or {})}
+        by_id = {task.id: task for task in tasks}
+        self._refresh_blocked_tasks(tasks)
         progressed = True
         while progressed:
             progressed = False
+            if self._refresh_blocked_tasks(tasks):
+                progressed = True
             for task in sorted(tasks, key=lambda item: item.priority, reverse=True):
                 if task.status != TaskStatus.PROPOSED:
                     continue
                 missing = [dependency for dependency in task.dependencies if dependency not in by_id]
                 if missing:
-                    self.mark_blocked(task, f"Dependencias inexistentes: {missing}", "Corregir el plan")
+                    self.mark_blocked(
+                        task,
+                        f"Dependencias inexistentes: {missing}",
+                        "Corregir el plan",
+                        evidence=[f"IDs no encontrados en el plan: {missing}"],
+                        alternatives=[
+                            "Agregar las tareas faltantes",
+                            "Eliminar o reemplazar las dependencias inválidas",
+                        ],
+                        risks=["El plan no representa un grafo ejecutable completo"],
+                        category="plan",
+                    )
                     progressed = True
                     continue
                 states = [by_id[dependency].status for dependency in task.dependencies]
                 if any(state in {TaskStatus.FAILED, TaskStatus.BLOCKED} for state in states):
-                    self.mark_blocked(task, "Una dependencia no terminó correctamente", "Resolver la dependencia")
+                    failed_dependencies = [
+                        dependency
+                        for dependency in task.dependencies
+                        if by_id[dependency].status
+                        in {TaskStatus.FAILED, TaskStatus.BLOCKED}
+                    ]
+                    self.mark_blocked(
+                        task,
+                        "Una dependencia no terminó correctamente",
+                        "Resolver la dependencia",
+                        evidence=[
+                            "Dependencias detenidas: "
+                            + ", ".join(
+                                f"{dependency}={by_id[dependency].status.value}"
+                                for dependency in failed_dependencies
+                            )
+                        ],
+                        alternatives=[
+                            "Resolver o reintentar la dependencia",
+                            "Reformular el plan para retirar esa dependencia",
+                        ],
+                        risks=["Ejecutar ahora violaría el orden de dependencias"],
+                        automatic_next=(
+                            "Reanudar automáticamente cuando todas las "
+                            "dependencias estén completed"
+                        ),
+                        category="dependency",
+                        request_human_review=False,
+                    )
                     progressed = True
                     continue
                 if not all(state == TaskStatus.COMPLETED for state in states):
@@ -221,9 +351,26 @@ class TaskRouter:
 
                 decision = self.route_task(task)
                 task.assigned_agent = decision.agent
-                executor = executors.get(decision.agent) or executors.get(task.type)
+                executor = available_executors.get(
+                    decision.agent
+                ) or available_executors.get(task.type)
                 if executor is None:
-                    self.mark_blocked(task, f"No hay ejecutor para {decision.agent}/{task.type}", "Asignar un ejecutor")
+                    self.mark_blocked(
+                        task,
+                        f"No hay ejecutor para {decision.agent}/{task.type}",
+                        "Asignar un ejecutor",
+                        evidence=[
+                            f"Ejecutor buscado por agente: {decision.agent}",
+                            f"Ejecutor alternativo buscado por tipo: {task.type}",
+                        ],
+                        alternatives=[
+                            f"Registrar un ejecutor para {decision.agent}",
+                            f"Registrar un ejecutor para el tipo {task.type}",
+                            "Reasignar la tarea a un agente disponible",
+                        ],
+                        risks=["La tarea permanecerá detenida sin producir resultado"],
+                        category="executor",
+                    )
                     progressed = True
                     continue
 

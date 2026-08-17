@@ -176,6 +176,6 @@ PYTHONPATH=/home/fernando/ai-ecosystem/skilled:$PYTHONPATH pytest tests/
 
 ## References
 
-- [Semantic Router Documentation](references/semantic_router.md)
-- [Engine Integration Guides](references/engine_integrations.md)
-- [Policy Engine Details](references/policy_enforcement.md)
+- [Semantic Router Documentation](../semantic-router/SKILL.md)
+- [Validated engine integration](../../../../../README.md#componentes-principales)
+- [Operational decision tree](../../../../../skilled/reasoning/operational_decision.py)

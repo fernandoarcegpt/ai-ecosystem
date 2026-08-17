@@ -53,6 +53,20 @@ Ese comando ejecuta la suite de aceptación usada por CI. Comprueba:
 GitHub Actions ejecuta la misma selección en cada pull request y en los
 pushes a `main`.
 
+### Verificación real con Hermes CLI
+
+Hermes descubre plugins de usuario en `~/.hermes/plugins/`. En una instalación de desarrollo se puede enlazar este plugin sin duplicarlo:
+
+```bash
+mkdir -p ~/.hermes/plugins
+ln -s "$PWD/agents/hermes/plugins/neurosymbolic-integration" \
+  ~/.hermes/plugins/neurosymbolic-integration
+hermes plugins enable neurosymbolic-integration
+npm run test:hermes-cli
+```
+
+Si el destino ya existe, revísalo y no lo sobrescribas. La prueba ejecuta `hermes chat -q` tres veces y exige evidencia de NetworkX, Z3 y PyDatalog en el hook `pre_llm_call`.
+
 ## Componentes principales
 
 | Ruta | Responsabilidad |
@@ -63,9 +77,12 @@ pushes a `main`.
 | `skilled/reasoning/z3_solver_integration.py` | Restricciones Z3 |
 | `skilled/reasoning/pydatalog_integration.py` | Hechos, reglas y consultas |
 | `skilled/reasoning/task_router.py` | Plan, ejecución, verificación y reanudación |
+| `skilled/reasoning/operational_decision.py` | Árbol operativo central y auditable |
+| `skilled/reasoning/claude_code_executor.py` | Ejecutor opt-in de Claude Code en modo JSON |
 | `agents/hermes/skills/human_gate/skill.py` | Libro persistente de revisiones humanas |
 | `sharememory/hermes_memory/knowledge_broker.py` | Memoria persistente y búsqueda |
 | `sharememory/hermes_memory/work_memory.py` | Captura de resultados verificados |
+| `skilled/improvement/` | Evidencia de mejora continua y datasets de evaluación |
 
 ## Ejemplo de razonamiento
 
@@ -103,16 +120,37 @@ report = router.execute_available(
 ```
 
 Si no existe un ejecutor, la tarea queda en `blocked` con motivo y acción
-requerida. Al resolver el bloqueo se puede llamar otra vez a
-`execute_available`; el trabajo independiente continúa mientras tanto.
+requerida. Una aprobación guardada en `HumanGate` reanuda automáticamente la tarea en la siguiente ejecución y libera sus dependientes; el trabajo independiente continúa mientras tanto.
+
+Claude Code puede registrarse como ejecutor explícito del agente `builder`:
+
+```python
+from reasoning.claude_code_executor import ClaudeCodeExecutor
+from reasoning.task_router import TaskRouter
+
+executor = ClaudeCodeExecutor(".")
+router = TaskRouter(executors={"builder": executor})
+```
+
+El adaptador usa `claude -p --output-format json --json-schema ...` y solo declara una implementación verificada cuando Claude devuelve evidencia y `tests_passed: true`.
+
+## Memoria versionable
+
+La memoria de ejecución permanece fuera del snapshot versionado. Solo entradas marcadas como `verified`/`validated` y con confianza suficiente se exportan:
+
+```bash
+PYTHONPATH=. python -m sharememory.hermes_memory.knowledge_broker \
+  export-validated docs/validated-knowledge.json
+```
+
+`BasicMemory` usa ahora `basic_memory.json`; ya no comparte el esquema incompatible de `memory.json` con `KnowledgeBroker`.
 
 ## Límites actuales
 
 - El parser de lenguaje natural cubre patrones explícitos, no comprensión
   lingüística general.
-- Los ejecutores de tareas se inyectan como funciones; este módulo no crea
-  procesos ni agentes externos por sí solo.
-- La integración automática incluida está validada para la plataforma CLI.
+- Los ejecutores se inyectan de forma explícita. Existe un adaptador de Claude Code, pero una ejecución real requiere el binario y autenticación del host.
+- El contrato del plugin y sus tres motores tienen pruebas automáticas. La validación contra el proceso Hermes instalado se ejecuta aparte con `npm run test:hermes-cli`.
 - Los árboles históricos y respaldos del repositorio se conservan; la suite
   central usa las rutas enumeradas en `package.json` y en CI.
 

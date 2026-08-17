@@ -7,11 +7,25 @@ el hook pre_llm_call.
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 _registered = False
+
+
+def _write_proof(message: str) -> None:
+    """Append machine-readable evidence when a proof log is configured."""
+    selected = os.getenv(
+        "HERMES_NEUROSYMBOLIC_PROOF_LOG",
+        "/tmp/neuro_hook_proof.log",
+    )
+    proof_path = Path(selected).expanduser()
+    proof_path.parent.mkdir(parents=True, exist_ok=True)
+    with proof_path.open("a", encoding="utf-8") as handle:
+        handle.write(message.rstrip("\n") + "\n")
 
 
 def register(ctx):
@@ -40,8 +54,7 @@ def register(ctx):
                 logger.warning(
                     "[neurosymbolic-plugin] pre_llm_call_hook invoked"
                 )
-                with open("/tmp/neuro_hook_proof.log", "a", encoding="utf-8") as f:
-                    f.write("HOOK INVOKED\\n")
+                _write_proof("HOOK_INVOKED")
                 logger.warning(
                     "  kwargs keys: %s",
                     list(kwargs.keys()),
@@ -88,8 +101,7 @@ def register(ctx):
                     status,
                     engine,
                 )
-                with open("/tmp/neuro_hook_proof.log", "a", encoding="utf-8") as f:
-                    f.write(f"ENGINE={engine} STATUS={status}\\n")
+                _write_proof(f"ENGINE={engine} STATUS={status}")
 
                 if status != "success":
                     logger.warning(
@@ -113,8 +125,7 @@ def register(ctx):
                     engine,
                 )
 
-                with open("/tmp/neuro_hook_proof.log", "a", encoding="utf-8") as f:
-                    f.write("CONTEXT_INJECTED\\n")
+                _write_proof("CONTEXT_INJECTED")
 
                 return {"context": str(evidence_text)}
 

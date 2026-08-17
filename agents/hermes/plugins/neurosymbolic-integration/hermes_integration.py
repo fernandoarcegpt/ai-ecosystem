@@ -8,15 +8,21 @@ will call to detect and execute symbolic reasoning.
 from __future__ import annotations
 
 import logging
+import os
 import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Add the ecosystem to the path for imports
-_EcosystemPath = "/home/fernando/ai-ecosystem/skilled"
-if _EcosystemPath not in sys.path:
-    sys.path.insert(0, _EcosystemPath)
+# Resolve the checkout from the plugin source instead of assuming one user's
+# home directory. AI_ECOSYSTEM_ROOT remains available for packaged copies.
+_REPOSITORY_ROOT = Path(
+    os.getenv("AI_ECOSYSTEM_ROOT", Path(__file__).resolve().parents[4])
+).expanduser().resolve()
+_ECOSYSTEM_PATH = str(_REPOSITORY_ROOT / "skilled")
+if _ECOSYSTEM_PATH not in sys.path:
+    sys.path.insert(0, _ECOSYSTEM_PATH)
 
 # Track availability
 _NEUROSYMBOLIC_AVAILABLE = False
@@ -114,7 +120,21 @@ def hermes_explicit_symbolic_reasoning(
         integration = get_symbolic_integration()
         temporal_context = integration.provide_temporal_context(context)
 
-        return integration.intercept_task(task_description, temporal_context)
+        result = integration.intercept_task(task_description, temporal_context)
+        if engine_preference in {None, "auto"} or not result:
+            return result
+
+        coordinator = getattr(integration, "coordinator", None)
+        if coordinator is None:
+            return {
+                "status": "symbolic_engine_unavailable",
+                "error": "Neurosymbolic coordinator is unavailable",
+            }
+        return coordinator.execute_symbolic_reasoning(
+            task_description,
+            temporal_context,
+            engine_preference,
+        ).to_dict()
     except Exception as e:
         logger.error(f"Explicit symbolic reasoning failed: {e}")
         return {

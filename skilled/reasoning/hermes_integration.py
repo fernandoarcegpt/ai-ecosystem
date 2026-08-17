@@ -8,11 +8,18 @@ Hermes pre_llm_call -> ProblemExtractor -> SymbolicProblem -> coordinador
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Optional
 
-sys.path.insert(0, "/home/fernando/ai-ecosystem/skilled")
+_REPOSITORY_ROOT = Path(
+    os.getenv("AI_ECOSYSTEM_ROOT", Path(__file__).resolve().parents[2])
+).expanduser().resolve()
+_SKILLED_PATH = str(_REPOSITORY_ROOT / "skilled")
+if _SKILLED_PATH not in sys.path:
+    sys.path.insert(0, _SKILLED_PATH)
 
 logger = logging.getLogger(__name__)
 
