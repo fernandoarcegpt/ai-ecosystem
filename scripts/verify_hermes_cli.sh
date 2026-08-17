@@ -6,7 +6,13 @@ if ! command -v hermes >/dev/null 2>&1; then
   exit 2
 fi
 
-if ! hermes plugins list 2>&1 | grep -q "neurosymbolic-integration"; then
+if ! plugin_list="$(hermes plugins list --plain --no-bundled 2>&1)"; then
+  echo "ERROR: no se pudo consultar la lista de plugins de Hermes" >&2
+  printf '%s\n' "$plugin_list" >&2
+  exit 3
+fi
+
+if [[ "$plugin_list" != *"neurosymbolic-integration"* ]]; then
   echo "ERROR: Hermes no descubre el plugin neurosymbolic-integration" >&2
   echo "Instálalo en ~/.hermes/plugins/ y habilítalo con:" >&2
   echo "  hermes plugins enable neurosymbolic-integration" >&2
