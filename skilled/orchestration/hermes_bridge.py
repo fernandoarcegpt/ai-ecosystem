@@ -44,7 +44,13 @@ def run_from_hermes(
         or os.getenv("HERMES_AUTONOMY_STATE_DIR")
         or (Path.home() / ".hermes" / "state" / "ai-ecosystem")
     ).expanduser().resolve()
-    selected_executor = executor or ClaudeCodeExecutor(str(repository))
+    expected_path = os.getenv("HERMES_AUTONOMY_VERIFY_FILE")
+    expected_content = os.getenv("HERMES_AUTONOMY_VERIFY_CONTENT")
+    require_structured = not bool(expected_path and expected_content is not None)
+    selected_executor = executor or ClaudeCodeExecutor(
+        str(repository),
+        require_structured_output=require_structured,
+    )
     registry = AgentRegistry()
     # Claude Code is an external worker. Task-type aliases allow the same
     # worker to execute every stage while TaskRouter preserves role evidence.
@@ -64,11 +70,35 @@ def run_from_hermes(
     memory = WorkMemoryRecorder(
         KnowledgeBroker(str(selected_state / "memory"))
     )
+    verifier = None
+    if expected_path and expected_content is not None:
+        verification_target = (repository / expected_path).resolve()
+        if repository not in verification_target.parents:
+            raise ValueError("Verification file must stay inside the repository")
+
+        def verifier(task: Task, result: Any) -> Dict[str, Any]:
+            actual = (
+                verification_target.read_text(encoding="utf-8")
+                if verification_target.is_file()
+                else None
+            )
+            verified = bool(result.get("success")) and actual == expected_content
+            return {
+                "status": "verified" if verified else "failed",
+                "confidence": 1.0,
+                "details": [
+                    "Archivo comprobado independientemente"
+                    if verified
+                    else "El archivo independiente no coincide"
+                ],
+                "recommendations": [],
+            }
+
     return AutonomousOrchestrator(
         registry,
         state_dir=str(selected_state),
         memory_recorder=memory,
-    ).run(objective, {"persist": True})
+    ).run(objective, {"persist": True}, verifier=verifier)
 
 
 __all__ = ["COMMAND_PREFIX", "is_orchestration_request", "run_from_hermes"]

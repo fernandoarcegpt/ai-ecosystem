@@ -105,10 +105,15 @@ class AutonomousOrchestrator:
         )
         temporary.replace(target)
 
-    def run(self, objective: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def run(
+        self,
+        objective: str,
+        context: Optional[Dict[str, Any]] = None,
+        verifier: Optional[Callable[[Task, Any], Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
         decision = decide_operation(objective, context)
         tasks = self.router.decompose_objective(objective)
-        report = self.router.execute_available(tasks)
+        report = self.router.execute_available(tasks, verifier=verifier)
         history = self._history()
         improvement_inputs = [item["task_report"] for item in history]
         improvement_inputs.append(report)

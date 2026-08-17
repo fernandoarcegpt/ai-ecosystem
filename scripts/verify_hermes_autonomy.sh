@@ -23,6 +23,8 @@ export HERMES_AUTONOMY_ENABLED=1
 export HERMES_AUTONOMY_REPOSITORY="$probe_dir"
 export HERMES_AUTONOMY_STATE_DIR="$state_dir"
 export HERMES_NEUROSYMBOLIC_PROOF_LOG="$proof_log"
+export HERMES_AUTONOMY_VERIFY_FILE="hermes_autonomy_probe.txt"
+export HERMES_AUTONOMY_VERIFY_CONTENT=$'HERMES_AUTONOMY_OK\n'
 
 passed=0
 for attempt in 1 2; do

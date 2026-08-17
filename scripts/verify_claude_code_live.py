@@ -31,6 +31,7 @@ def main() -> int:
             str(repository),
             timeout_seconds=300,
             max_turns=8,
+            require_structured_output=False,
         )
         probe = repository / "claude_live_probe.txt"
         attempts = []
@@ -70,16 +71,20 @@ def main() -> int:
             router = TaskRouter(executors={"builder": executor})
 
             def verify(item: Task, result: Any) -> Dict[str, Any]:
-                check = router.verify_task_result(item, result)
                 actual = (
                     probe.read_text(encoding="utf-8") if probe.exists() else None
                 )
-                if actual != EXPECTED:
-                    check.update(status="failed", confidence=1.0)
-                    check["details"].append(
-                        "La comprobación independiente del archivo no coincidió"
-                    )
-                return check
+                verified = bool(result.get("success")) and actual == EXPECTED
+                return {
+                    "status": "verified" if verified else "failed",
+                    "confidence": 1.0,
+                    "details": [
+                        "Archivo comprobado independientemente"
+                        if verified
+                        else "La comprobación independiente no coincidió"
+                    ],
+                    "recommendations": [],
+                }
 
             report = router.execute_available([task], verifier=verify)
             result = task.metadata.get("result", {})

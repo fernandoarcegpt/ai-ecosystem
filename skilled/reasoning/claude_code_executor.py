@@ -40,6 +40,7 @@ class ClaudeCodeExecutor:
         timeout_seconds: int = 1800,
         max_turns: int = 30,
         max_budget_usd: Optional[float] = None,
+        require_structured_output: bool = True,
     ):
         self.repository_path = Path(repository_path).expanduser().resolve()
         selected_binary = binary or os.getenv("CLAUDE_CODE_BIN") or "claude"
@@ -47,6 +48,7 @@ class ClaudeCodeExecutor:
         self.timeout_seconds = timeout_seconds
         self.max_turns = max_turns
         self.max_budget_usd = max_budget_usd
+        self.require_structured_output = require_structured_output
 
     @property
     def available(self) -> bool:
@@ -83,13 +85,16 @@ class ClaudeCodeExecutor:
             self._prompt(task),
             "--output-format",
             "json",
-            "--json-schema",
-            json.dumps(RESULT_SCHEMA, separators=(",", ":")),
             "--permission-mode",
             "acceptEdits",
             "--max-turns",
             str(self.max_turns),
         ]
+        if self.require_structured_output:
+            command[5:5] = [
+                "--json-schema",
+                json.dumps(RESULT_SCHEMA, separators=(",", ":")),
+            ]
         if self.max_budget_usd is not None:
             command.extend(["--max-budget-usd", str(self.max_budget_usd)])
 
@@ -139,16 +144,34 @@ class ClaudeCodeExecutor:
             result = {}
         permission_denials = envelope.get("permission_denials") or []
         envelope_error = bool(envelope.get("is_error"))
-        response = {
-            **result,
-            "success": bool(result.get("completed"))
-            and not envelope_error
-            and not permission_denials,
-            "session_id": envelope.get("session_id"),
-            "cost_usd": envelope.get("total_cost_usd"),
-            "permission_denials": permission_denials,
-            "terminal_reason": envelope.get("terminal_reason"),
-        }
+        if self.require_structured_output:
+            response = {
+                **result,
+                "success": bool(result.get("completed"))
+                and not envelope_error
+                and not permission_denials,
+                "session_id": envelope.get("session_id"),
+                "cost_usd": envelope.get("total_cost_usd"),
+                "permission_denials": permission_denials,
+                "terminal_reason": envelope.get("terminal_reason"),
+            }
+        else:
+            # Plain JSON preserves Claude Code tool execution for providers
+            # that only simulate the requested schema. Completion is still
+            # unverified: the caller must supply an independent verifier.
+            response = {
+                "success": not envelope_error and not permission_denials,
+                "completed": not envelope_error and not permission_denials,
+                "tests_passed": False,
+                "summary": str(envelope.get("result") or ""),
+                "evidence": [str(envelope.get("result") or "")],
+                "files_changed": [],
+                "session_id": envelope.get("session_id"),
+                "cost_usd": envelope.get("total_cost_usd"),
+                "permission_denials": permission_denials,
+                "terminal_reason": envelope.get("terminal_reason"),
+                "requires_independent_verification": True,
+            }
         if envelope_error:
             response.update(
                 success=False,
@@ -164,7 +187,7 @@ class ClaudeCodeExecutor:
                 tests_passed=False,
                 error="claude_code_permission_denied",
             )
-        elif not result:
+        elif self.require_structured_output and not result:
             response.update(
                 success=False,
                 completed=False,

@@ -110,3 +110,31 @@ def test_claude_code_executor_rejects_permission_denials(tmp_path):
     assert result["success"] is False
     assert result["completed"] is False
     assert result["error"] == "claude_code_permission_denied"
+
+
+def test_plain_output_requires_independent_verification(tmp_path):
+    fake_claude = tmp_path / "claude-plain"
+    payload = {
+        "is_error": False,
+        "result": "Trabajo realizado",
+        "session_id": "session-plain",
+        "permission_denials": [],
+        "terminal_reason": "completed",
+    }
+    fake_claude.write_text(
+        "#!/usr/bin/env python3\n"
+        f"print({json.dumps(json.dumps(payload))})\n",
+        encoding="utf-8",
+    )
+    fake_claude.chmod(0o755)
+
+    result = ClaudeCodeExecutor(
+        str(tmp_path),
+        binary=str(fake_claude),
+        timeout_seconds=5,
+        require_structured_output=False,
+    )(_task("implementation", task_type="implementation"))
+
+    assert result["success"] is True
+    assert result["tests_passed"] is False
+    assert result["requires_independent_verification"] is True
