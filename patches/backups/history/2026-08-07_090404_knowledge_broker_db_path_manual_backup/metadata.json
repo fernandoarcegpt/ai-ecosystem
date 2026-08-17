@@ -1,0 +1,9 @@
+{
+  "original_path": "/home/fernando/ai-ecosystem/patches/2026-08-04_knowledge_broker_db_path",
+  "backup_directory": "/home/fernando/ai-ecosystem/patches/backups/history/2026-08-07_090404_knowledge_broker_db_path_manual_backup",
+  "timestamp": "2026-08-07_090404",
+  "size_bytes": 4096,
+  "created_at": "/home/fernando/ai-ecosystem/patches/2026-08-04_knowledge_broker_db_path",
+  "backup_of": "knowledge_broker_db_path",
+  "purpose": "permanent_backup_example"
+}

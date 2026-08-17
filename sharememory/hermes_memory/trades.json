@@ -1,0 +1,92 @@
+[
+  {
+    "success": true,
+    "symbol": "AAPL",
+    "action": "buy",
+    "quantity": 2,
+    "price": 175.5,
+    "timestamp": "2026-07-23T13:17:25.020000",
+    "order_id": "ORD-20260723131725",
+    "stop_loss_price": 166.725
+  },
+  {
+    "success": true,
+    "symbol": "AAPL",
+    "action": "buy",
+    "quantity": 2,
+    "price": 175.5,
+    "timestamp": "2026-07-23T13:18:50.354256",
+    "order_id": "ORD-20260723131850",
+    "stop_loss_price": 166.725
+  },
+  {
+    "success": true,
+    "symbol": "GOOGL",
+    "action": "sell",
+    "quantity": 3,
+    "price": 140.0,
+    "timestamp": "2026-07-23T13:18:50.355303",
+    "order_id": "ORD-20260723131850",
+    "stop_loss_price": 147.0
+  },
+  {
+    "success": true,
+    "symbol": "AAPL",
+    "action": "buy",
+    "quantity": 2,
+    "price": 175.5,
+    "timestamp": "2026-07-23T13:37:52.452152",
+    "order_id": "ORD-20260723133752",
+    "stop_loss_price": 166.725
+  },
+  {
+    "success": true,
+    "symbol": "GOOGL",
+    "action": "sell",
+    "quantity": 3,
+    "price": 140.0,
+    "timestamp": "2026-07-23T13:37:52.453860",
+    "order_id": "ORD-20260723133752",
+    "stop_loss_price": 147.0
+  },
+  {
+    "success": true,
+    "symbol": "AAPL",
+    "action": "buy",
+    "quantity": 2,
+    "price": 175.5,
+    "timestamp": "2026-07-23T13:41:28.980872",
+    "order_id": "ORD-20260723134128",
+    "stop_loss_price": 166.725
+  },
+  {
+    "success": true,
+    "symbol": "GOOGL",
+    "action": "sell",
+    "quantity": 3,
+    "price": 140.0,
+    "timestamp": "2026-07-23T13:41:28.983305",
+    "order_id": "ORD-20260723134128",
+    "stop_loss_price": 147.0
+  },
+  {
+    "success": true,
+    "symbol": "AAPL",
+    "action": "buy",
+    "quantity": 2,
+    "price": 175.5,
+    "timestamp": "2026-07-23T13:42:29.094041",
+    "order_id": "ORD-20260723134229",
+    "stop_loss_price": 166.725
+  },
+  {
+    "success": true,
+    "symbol": "GOOGL",
+    "action": "sell",
+    "quantity": 3,
+    "price": 140.0,
+    "timestamp": "2026-07-23T13:42:29.095921",
+    "order_id": "ORD-20260723134229",
+    "stop_loss_price": 147.0
+  }
+]

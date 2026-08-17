@@ -1,0 +1,10 @@
+--- a/src/ingest.py
++++ b/src/ingest.py
+@@ -28,7 +28,7 @@ Settings.embed_model = OpenAIEmbedding(
+ 
+ # 2. Inicializar KùzuDB
+- db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base"
++ db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
+ os.makedirs(os.path.dirname(db_path), exist_ok=True)
+ 
+ # Clean any previous test files

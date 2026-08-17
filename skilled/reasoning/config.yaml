@@ -1,0 +1,11 @@
+# Configuración del módulo de razonamiento neurosimbólico
+enabled: true
+libraries:
+  networkx: /home/fernando/ai-ecosystem/skilled/reasoning/networkx_wrapper.py
+  pydatalog: /home/fernando/ai-ecosystem/skilled/reasoning/pydatalog_integration.py
+  z3: /home/fernando/ai-ecosystem/skilled/reasoning/z3_solver_integration.py
+decision_strategies:
+  rule_based: true
+  constraint_based: true
+  graph_analysis: false
+  auto_trigger: true  # Determinar automáticamente cuando sea benéfico

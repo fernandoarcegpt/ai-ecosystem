@@ -1,0 +1,96 @@
+{
+    "spinnerVerbs": {
+        "mode": "append",
+        "verbs": [
+            "Consulting the memory graph",
+            "Warming the HNSW index",
+            "Recalling similar patterns",
+            "Searching semantic memory",
+            "Reranking with MMR",
+            "Traversing knowledge graph",
+            "Loading trajectory context",
+            "Optimizing your prompt",
+            "Sharpening the plan",
+            "Compacting the context",
+            "Distilling the trajectory",
+            "Reducing token spend",
+            "Compressing the working set",
+            "Learning from the trajectory",
+            "Training the router",
+            "Judging past verdicts",
+            "Consolidating memories",
+            "Reasoning through the graph",
+            "Predicting the next step",
+            "Auditing for CVEs",
+            "Scanning dependencies",
+            "Verifying signatures",
+            "Guarding against injection",
+            "Spawning subagents",
+            "Coordinating the swarm",
+            "Reaching consensus",
+            "Balancing the workload",
+            "Routing to the best model",
+            "Warming background workers",
+            "Analyzing the diff",
+            "Sharpening the review",
+            "Consulting Cognitum",
+            "Checking Cognitum credits",
+            "Routing via Cognitum",
+            "Fetching a Cognitum tip",
+            "Warming Cognitum cache",
+            "Weighing Cognitum options"
+        ]
+    },
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Grep|Glob",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "~/.claude/hooks/cbm-code-discovery-gate",
+                        "timeout": 5
+                    }
+                ]
+            }
+        ],
+        "SessionStart": [
+            {
+                "matcher": "startup",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "~/.claude/hooks/cbm-session-reminder"
+                    }
+                ]
+            },
+            {
+                "matcher": "resume",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "~/.claude/hooks/cbm-session-reminder"
+                    }
+                ]
+            },
+            {
+                "matcher": "clear",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "~/.claude/hooks/cbm-session-reminder"
+                    }
+                ]
+            },
+            {
+                "matcher": "compact",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "~/.claude/hooks/cbm-session-reminder"
+                    }
+                ]
+            }
+        ]
+    }
+}

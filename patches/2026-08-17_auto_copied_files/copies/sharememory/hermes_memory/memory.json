@@ -1,0 +1,40 @@
+{
+  "102855": {
+    "type": "procedure",
+    "content": "Android-fin-gpt-trader uses FINGPT for signals",
+    "metadata": {
+      "source": "system",
+      "tags": [
+        "trading",
+        "android"
+      ]
+    },
+    "timestamp": "now",
+    "status": "active"
+  },
+  "485172": {
+    "type": "fact",
+    "content": "Test entry",
+    "metadata": {
+      "source": "test",
+      "tags": [
+        "test"
+      ]
+    },
+    "timestamp": "now",
+    "status": "active"
+  },
+  "4f22ffea2495": {
+    "id": "4f22ffea2495",
+    "type": "fact",
+    "content": "Test entry",
+    "metadata": {
+      "source": "system",
+      "tags": [],
+      "content_hash": "4f22ffea2495",
+      "created_at": "2026-08-05T04:30:17.056924+00:00"
+    },
+    "timestamp": "2026-08-05T04:30:17.056970+00:00",
+    "status": "active"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "component": ".backup-before-ruflo-cleanup/AsyncSeriesHook.js",
+  "file_path": "/home/fernando/ai-ecosystem/.backup-before-ruflo-cleanup/AsyncSeriesHook.js",
+  "backup_dir": "/home/fernando/ai-ecosystem/patches/backups/history/2026-08-07_090341_.backup-before-ruflo-cleanup_AsyncSeriesHook.js",
+  "timestamp": "2026-08-07T09:03:41.555673",
+  "size_bytes": 854,
+  "git_hash": "db94418cbb8a766128810760e5425d2d386ae866",
+  "version_from": "current",
+  "status": "backup_created"
+}

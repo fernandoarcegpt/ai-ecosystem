@@ -1,0 +1,22 @@
+--- a/notex/main.go
++++ b/notex/main.go
+@@ -3,10 +3,6 @@
+ import (
+-   "time"
+-   \"github.com/kataras/golog\"
+-   \"github.com/lestrrat-go/file-rotatelogs\"
+-   ...
+- )
++ import (
++     "context"
++     "flag"
++     "fmt"
++     "os"
++     "path/filepath"
++     "runtime"
++     "time"
++     
++     "github.com/kataras/golog"
++     "github.com/lestrrat-go/file-rotatelogs"
++     "github.com/smallnest/notex/backend"
++ )

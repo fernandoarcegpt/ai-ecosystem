@@ -1,0 +1,10 @@
+allowBuilds:
+  better-sqlite3: false
+  codebase-memory-mcp: set this to true or false
+
+minimumReleaseAgeExclude:
+  - playwright-core@1.62.1
+  - playwright@1.62.1
+
+onlyBuiltDependencies:
+  - better-sqlite3

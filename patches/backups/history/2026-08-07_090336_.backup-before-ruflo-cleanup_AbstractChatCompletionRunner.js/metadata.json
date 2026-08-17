@@ -1,0 +1,10 @@
+{
+  "component": ".backup-before-ruflo-cleanup/AbstractChatCompletionRunner.js",
+  "file_path": "/home/fernando/ai-ecosystem/.backup-before-ruflo-cleanup/AbstractChatCompletionRunner.js",
+  "backup_dir": "/home/fernando/ai-ecosystem/patches/backups/history/2026-08-07_090336_.backup-before-ruflo-cleanup_AbstractChatCompletionRunner.js",
+  "timestamp": "2026-08-07T09:03:37.089650",
+  "size_bytes": 19078,
+  "git_hash": "db94418cbb8a766128810760e5425d2d386ae866",
+  "version_from": "current",
+  "status": "backup_created"
+}

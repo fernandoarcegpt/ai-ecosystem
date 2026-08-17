@@ -1,0 +1,61 @@
+- id: "SAF-CRITICAL-001"
+  version: "1.0"
+  description: "Protección de archivos críticos que no pueden modificarse sin aprobación humana."
+  priority: "CRITICAL"
+  effect: "deny"
+  when:
+    - action: "modify"
+      file_path: "/home/fernando/ai-ecosystem/src/reasoning/policies/safety.yaml"
+      category: "secrets"
+  obligations:
+    - "approve_human"
+    - "audit_log"
+
+- id: "SAF-CRITICAL-002"
+  version: "1.0"
+  description: "Protección de archivos críticos de sistema que no pueden eliminarse."
+  priority: "CRITICAL"
+  effect: "deny"
+  when:
+    - action: "delete"
+      file_path: "/home/fernando/ai-ecosystem/src/reasoning/"
+      category: "system"
+  obligations:
+    - "approve_human"
+    - "audit_log"
+
+- id: "SAF-PRIVILEGED-003"
+  version: "1.0"
+  description: "Protección de archivos privilegiados con credenciales que requieren aprobación."
+  priority: "HIGH"
+  effect: "require_human"
+  when:
+    - action: "modify"
+      file_path: "/home/fernando/ai-ecosystem/src/reasoning/policies/"
+      category: "secrets"
+  obligations:
+    - "approve_human"
+    - "audit_log"
+
+# Per-miss-i-on policies
+- id: "PERM-READ-001"
+  version: "1.0"
+  description: "Permiso de lectura para archivos en el directorio de documentos."
+  priority: "MEDIUM"
+  effect: "allow"
+  when:
+    - action: "read"
+      file_path: "/home/fernando/ai-ecosystem/docs/"
+      category: "docs"
+  obligations: []
+
+- id: "PERM-READ-002"
+  version: "1.0"
+  description: "Permiso de lectura para archivos en el directorio de origen."
+  priority: "MEDIUM"
+  effect: "allow"
+  when:
+    - action: "read"
+      file_path: "/home/fernando/ai-ecosystem/src/reasoning/"
+      category: "source"
+  obligations: []

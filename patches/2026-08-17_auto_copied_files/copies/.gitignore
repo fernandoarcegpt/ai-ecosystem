@@ -1,0 +1,58 @@
+# Python environment
+.venv/
+venv/
+__pycache__/
+
+# Environment variables
+.env
+
+# Node modules
+node_modules/
+
+# Claude configuration
+.claude/
+.claude-flow/
+
+# MCP configuration
+.mcp.json
+
+# Downloads directory
+downloads/
+
+# Claude Flow backups
+.claude-flow_backup_*/
+
+# Agents backups
+.agents_backup_*/
+
+# Generated spec files
+.openspec/specs/
+
+# CLAUDE data
+.claude.json
+.claude.json_backup_*/
+
+# PDF/images from downloads
+downloads/*.images
+
+# Additional exclusions
+.pnpm-store/
+.pnpm-store/*
+ruv-swarm.db*
+# Cache directories
+.cache/
+.caches/
+.temp/
+temp/
+# Hidden OS files
+.DS_Store
+Thumbs.db
+# Backup extensions
+*~
+*.tmp
+*.log
+*.swp
+*.swo
+*.swn
+# Large backup directories
+.claude/file-history/**

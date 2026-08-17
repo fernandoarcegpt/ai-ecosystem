@@ -1,0 +1,10 @@
+{
+  "component": ".backup-before-ruflo-cleanup/AsyncParallelHook.js",
+  "file_path": "/home/fernando/ai-ecosystem/.backup-before-ruflo-cleanup/AsyncParallelHook.js",
+  "backup_dir": "/home/fernando/ai-ecosystem/patches/backups/history/2026-08-07_090341_.backup-before-ruflo-cleanup_AsyncParallelHook.js",
+  "timestamp": "2026-08-07T09:03:41.224517",
+  "size_bytes": 868,
+  "git_hash": "db94418cbb8a766128810760e5425d2d386ae866",
+  "version_from": "current",
+  "status": "backup_created"
+}

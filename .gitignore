@@ -1,0 +1,404 @@
+# =========================================================
+# PYTHON
+# =========================================================
+
+# Virtual environments
+.venv/
+venv/
+*-venv/
+env/
+.envdir/
+
+# Generated Python files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Packaging
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Testing / lint / typing caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.tox/
+.nox/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+
+
+# =========================================================
+# ENVIRONMENT VARIABLES / SECRETS
+# =========================================================
+
+.env
+.env.*
+
+# Safe templates remain versioned
+!.env.example
+!.env.sample
+!.env.template
+!.env.dist
+
+# Known credential / secret files
+credenciales.txt
+credenciales.json
+credenciales.yaml
+credenciales.yml
+credenciales.toml
+
+credentials.txt
+credentials.json
+credentials.yaml
+credentials.yml
+credentials.toml
+credentials.ini
+credentials.cfg
+credentials.conf
+
+secrets.txt
+secrets.json
+secrets.yaml
+secrets.yml
+secrets.toml
+secrets.ini
+secrets.cfg
+secrets.conf
+
+# Secret directories
+.secrets/
+secrets/
+
+# Private keys / certificates / credential containers
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+
+# =========================================================
+# NODE / JAVASCRIPT / TYPESCRIPT
+# =========================================================
+
+node_modules/
+
+.pnpm-store/
+.npm/
+.yarn/
+
+.pnp
+.pnp.*
+
+.vite/
+.next/
+.nuxt/
+.parcel-cache/
+.turbo/
+.svelte-kit/
+
+*.tsbuildinfo
+
+# Generated test/browser output
+coverage/
+playwright-report/
+test-results/
+
+
+# =========================================================
+# BUILD / COMPILED OUTPUTS
+# =========================================================
+
+dist/
+build/
+out/
+target/
+
+# Native compilation artifacts
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+
+*.gcda
+*.gcno
+*.profraw
+
+
+# =========================================================
+# HERMES LOCAL INSTALLATION / RUNTIME
+# =========================================================
+#
+# Installed Hermes application/runtime.
+# Project-owned Hermes integrations remain elsewhere
+# in ai-ecosystem and are versioned normally.
+# =========================================================
+
+.hermes/
+
+
+# =========================================================
+# HERMES PROJECT MEMORY
+# =========================================================
+#
+# KEEP:
+#   sharememory/hermes_memory/memory.json
+#   sharememory/hermes_memory/okf_index.json
+#   sharememory/hermes_memory/trades.json
+#   sharememory/hermes_memory/payloads/
+#
+# Ignore only transaction/temporary/corrupt state.
+# =========================================================
+
+sharememory/hermes_memory/memory.lock
+sharememory/hermes_memory/memory-*.tmp
+sharememory/hermes_memory/memory.corrupt-*.json
+
+
+# =========================================================
+# CLAUDE CODE
+# =========================================================
+#
+# KEEP project-owned configuration:
+#   .claude/CLAUDE.md
+#   .claude/settings.json
+#   .claude/hooks/
+#   .claude/skills/
+#   .claude/rules/
+#   .claude/agents/
+#   .claude/commands/
+#   .claude/plans/
+#
+# Ignore runtime/local/session state.
+# =========================================================
+
+.claude/settings.local.json
+
+.claude/projects/
+.claude/file-history/
+.claude/cache/
+.claude/backups/
+
+.claude/daemon/
+.claude/jobs/
+.claude/paste-cache/
+.claude/shell-snapshots/
+.claude/tasks/
+.claude/teams/
+.claude/telemetry/
+
+# Downloaded plugin repositories/caches
+.claude/plugins/marketplaces/
+.claude/plugins/cache/
+.claude/plugins/known_marketplaces.json
+
+# Runtime/session files
+.claude/history.jsonl
+.claude/daemon.lock
+.claude/daemon.status.json
+.claude/.last-*
+
+
+# =========================================================
+# CLAUDE USER / LOCAL STATE
+# =========================================================
+
+.claude.json
+.claude.json_backup_*
+
+
+# =========================================================
+# MCP
+# =========================================================
+#
+# Root .mcp.json is intentionally NOT ignored.
+# Claude Code uses project-scoped .mcp.json for
+# configuration intended to be shared with the project.
+#
+# Never put actual secrets in it; reference environment
+# variables instead.
+# =========================================================
+
+
+# =========================================================
+# CLAUDE FLOW / RUFLO
+# =========================================================
+#
+# KEEP .claude-flow/ project configuration.
+# Exclude runtime coordination/memory state.
+# =========================================================
+
+.claude-flow/update-state.json
+
+.swarm/
+
+ruv-swarm.db*
+ruvector.db*
+
+
+# =========================================================
+# GENERATED DATABASE STATE
+# =========================================================
+
+# Kuzu runtime database
+storage/kuzu/*.kuzu
+storage/kuzu/*.kuzu.*
+storage/kuzu/*.wal
+storage/kuzu/*.lock
+
+# SQLite sidecar/runtime files
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3-shm
+*.sqlite3-wal
+
+
+# =========================================================
+# OLLAMA LOCAL DATA
+# =========================================================
+
+.ollama/
+
+
+# =========================================================
+# DOWNLOADED NLP DATA
+# =========================================================
+
+nltk_data/
+
+
+# =========================================================
+# EXTERNAL KNOWLEDGE / DOCUMENT LIBRARY
+# =========================================================
+#
+# Raw books, PDFs and extracted images are knowledge
+# sources, not source code. Keep them locally/external.
+#
+# A future README or manifest can still be versioned.
+# =========================================================
+
+library/*
+!library/README.md
+!library/manifest.json
+!library/manifest.yaml
+!library/manifest.yml
+
+
+# =========================================================
+# BACKUPS
+# =========================================================
+
+*_backup_*
+.backup-*
+
+*.bak
+*.backup
+*.old
+
+
+# =========================================================
+# DOWNLOADS
+# =========================================================
+
+downloads/
+
+
+# =========================================================
+# CACHE / TEMPORARY DIRECTORIES
+# =========================================================
+
+.cache/
+.caches/
+
+.temp/
+temp/
+tmp/
+
+.ipynb_checkpoints/
+
+
+# =========================================================
+# LOGS
+# =========================================================
+
+logs/
+*.log
+
+
+# =========================================================
+# GENERATED INVENTORY / ANALYSIS REPORTS
+# =========================================================
+
+estructura_con_tamanos.txt
+estructura_proyecto.txt
+
+archivos_git*.txt
+tamanos_*.txt
+top_*_tamanos.txt
+
+*_SEARCH_RESULTS.TXT
+*_SEARCH_RESULTS.txt
+
+
+# =========================================================
+# TEMPORARY / EDITOR FILES
+# =========================================================
+
+*~
+*.tmp
+*.swp
+*.swo
+*.swn
+
+.vscode/
+.idea/
+
+
+# =========================================================
+# OPERATING SYSTEM
+# =========================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# =========================================================
+# EXTERNAL / INDEPENDENT PROJECTS
+# =========================================================
+#
+# These are third-party/independent repositories physically
+# located inside ai-ecosystem.
+#
+# Their complete source trees are managed independently and
+# should NOT be duplicated in the ai-ecosystem repository.
+#
+# ai-ecosystem keeps only its own adapters, integration
+# scripts, configuration, documentation and references.
+# =========================================================
+
+codebase-memory-mcp/
+hermes-workspace/
+notex/
+ollama/
+zlibrary-mcp/
+patches/**/diff.txt
