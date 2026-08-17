@@ -24,24 +24,31 @@ export HERMES_AUTONOMY_REPOSITORY="$probe_dir"
 export HERMES_AUTONOMY_STATE_DIR="$state_dir"
 export HERMES_NEUROSYMBOLIC_PROOF_LOG="$proof_log"
 
-prompt='/orchestrate Verificar el flujo real: crea hermes_autonomy_probe.txt con el contenido exacto HERMES_AUTONOMY_OK seguido de un salto de línea, léelo y no modifiques ningún otro archivo.'
-if ! hermes chat -q "$prompt" >"$output_log" 2>&1; then
-  echo "ERROR: Hermes no completó la solicitud autónoma" >&2
-  sed -n '1,120p' "$output_log" >&2
-  exit 1
-fi
+passed=0
+for attempt in 1 2; do
+  : >"$proof_log"
+  : >"$output_log"
+  prompt="/orchestrate Verificar el flujo real en el directorio absoluto ${probe_dir}: crea realmente hermes_autonomy_probe.txt con los bytes exactos HERMES_AUTONOMY_OK seguidos de un único salto de línea. Léelo después. No basta con describirlo ni declarar éxito. Intento ${attempt}."
+  if hermes chat -q "$prompt" >"$output_log" 2>&1 \
+    && grep -q 'AUTONOMY_COMPLETED=1 BLOCKED=0 FAILED=0' "$proof_log" \
+    && python3 - "${probe_dir}/hermes_autonomy_probe.txt" <<'PY'
+import pathlib
+import sys
 
-if ! grep -q 'AUTONOMY_COMPLETED=1 BLOCKED=0 FAILED=0' "$proof_log"; then
-  echo "ERROR: el hook Hermes no registró una tarea autónoma completada" >&2
+path = pathlib.Path(sys.argv[1])
+raise SystemExit(0 if path.is_file() and path.read_bytes() == b"HERMES_AUTONOMY_OK\n" else 1)
+PY
+  then
+    passed=1
+    break
+  fi
+  echo "WARN: intento autónomo ${attempt} no produjo el archivo verificado" >&2
+done
+
+if [[ "$passed" -ne 1 ]]; then
+  echo "ERROR: Hermes no completó la solicitud autónoma verificable" >&2
   sed -n '1,120p' "$proof_log" >&2
-  exit 1
-fi
-if [[ ! -f "${probe_dir}/hermes_autonomy_probe.txt" ]]; then
-  echo "ERROR: el agente no creó el archivo de prueba" >&2
-  exit 1
-fi
-if [[ "$(<"${probe_dir}/hermes_autonomy_probe.txt")" != 'HERMES_AUTONOMY_OK' ]]; then
-  echo "ERROR: el contenido creado por el agente no coincide" >&2
+  sed -n '1,120p' "$output_log" >&2
   exit 1
 fi
 
