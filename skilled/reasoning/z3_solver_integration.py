@@ -11,6 +11,7 @@ from z3 import Solver, Int, Bool, And, Or, Not, Implies, sat, unsat, unknown, Mo
 from typing import Dict, List, Optional, Any, Tuple
 from enum import Enum
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,44 @@ class ConstraintSolver:
         except Exception as e:
             logger.warning(f"Z3 constraint addition failed: {e}")
             return False
+
+    def add_constraint(self, expression: str) -> bool:
+        """Formaliza un subconjunto explícito de expresiones aritméticas.
+
+        Se mantiene deliberadamente pequeño y no usa ``eval``: comparaciones
+        de una variable con un entero y sumas de variables igualadas a un
+        entero.
+        """
+        expression = expression.strip()
+        comparison = re.fullmatch(
+            r"([A-Za-z_]\w*)\s*(>=|<=|>|<|==|=)\s*(-?\d+)",
+            expression,
+        )
+        if comparison:
+            name, operator, raw_value = comparison.groups()
+            if name not in self.variables:
+                return False
+            value = int(raw_value)
+            variable = self.variables[name]
+            operators = {
+                ">": variable > value,
+                "<": variable < value,
+                ">=": variable >= value,
+                "<=": variable <= value,
+                "=": variable == value,
+                "==": variable == value,
+            }
+            return self.add_constraint_direct(operators[operator])
+
+        sum_match = re.fullmatch(
+            r"([A-Za-z_]\w*(?:\s*\+\s*[A-Za-z_]\w*)+)\s*=\s*(-?\d+)",
+            expression,
+        )
+        if sum_match:
+            names = [name.strip() for name in sum_match.group(1).split("+")]
+            return self.constraint_sum_eq(names, int(sum_match.group(2)))
+
+        return False
     
     def constraint_gt(self, var_name: str, value: int) -> bool:
         """Restricción: variable > value"""
@@ -145,6 +184,7 @@ class ConstraintSolver:
                         result["solution_values"][var_name] = val.as_long()
                     else:
                         result["solution_values"][var_name] = None
+                result["solution"] = dict(result["solution_values"])
                         
             elif status == unsat:
                 result["status"] = "unsatisfiable"

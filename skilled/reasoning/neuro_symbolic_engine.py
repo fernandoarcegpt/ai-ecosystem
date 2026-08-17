@@ -336,7 +336,7 @@ class NeurosymbolicCoordinator:
 
         try:
             # No aceptar como éxito un grafo vacío/no formalizado.
-            if not problem.relations and not context.get("dependencies"):
+            if not problem.relations:
                 return {
                     "status": "formalization_error",
                     "formalization_error": True,
@@ -358,13 +358,6 @@ class NeurosymbolicCoordinator:
             if problem.relations:
                 graph_analyzer.add_edges_from_relations(problem.relations)
 
-            # También verificar dependencies en context
-            if "dependencies" in context:
-                deps = context["dependencies"]
-                if isinstance(deps, list) and len(deps) > 1:
-                    for i in range(len(deps) - 1):
-                        graph_analyzer.graph.add_edge(deps[i], deps[i + 1])
-
             # Ejecutar análisis
             analysis = graph_analyzer.analyze()
 
@@ -374,7 +367,7 @@ class NeurosymbolicCoordinator:
             result_base["topological_order"] = analysis.get("topological_order")
 
             # SOLO marcar completado si se construyeron relaciones requeridas
-            if problem.relations or context.get("dependencies"):
+            if problem.relations:
                 result_base["analysis_complete"] = analysis.get("analysis_complete", False)
 
             result_base["graph_analysis"] = {
@@ -412,27 +405,31 @@ class NeurosymbolicCoordinator:
         }
 
         try:
-            # 1. PROBLEMA DE ASIGNACIÓN: Crear variables reales
+            # 1. Crear variables reales. Las asignaciones usan índices de
+            # personas; las restricciones aritméticas usan sus nombres.
             if problem.items and problem.people:
-                # Para cada item, crear variable que apunte a una persona
                 for item in problem.items:
                     var_name = f"item_{item}"
                     solver.add_integer_variable(var_name, min_val=0, max_val=len(problem.people) - 1)
+            elif problem.items:
+                for item in problem.items:
+                    solver.add_integer_variable(item)
 
-                # 2. Formalizar restricciones reales
-                for constraint in problem.constraints:
-                    formalized = self._formalize_z3_constraint(constraint, problem, solver)
-                    if formalized:
-                        result_base["formalized_constraints"].append(formalized)
-                    else:
-                        result_base["formalization_errors"].append(
-                            f"Could not formalize constraint: {constraint}"
-                        )
+            # 2. Formalizar todas las restricciones reales.
+            for constraint in problem.constraints:
+                formalized = self._formalize_z3_constraint(constraint, problem, solver)
+                if formalized:
+                    result_base["formalized_constraints"].append(formalized)
+                else:
+                    result_base["formalization_errors"].append(
+                        f"Could not formalize constraint: {constraint}"
+                    )
 
-                # 3. Si hay restricciones obligatorias no formalizables, error
-                if result_base["formalization_errors"]:
-                    result_base["status"] = "formalization_error"
-                    return result_base
+            # 3. Si hay restricciones obligatorias no formalizables, error.
+            if result_base["formalization_errors"]:
+                result_base["status"] = "formalization_error"
+                result_base["formalization_error"] = True
+                return result_base
 
             # 4. Resolver
             solve_result = solver.solve()
@@ -454,7 +451,7 @@ class NeurosymbolicCoordinator:
             result_base["executed"] = True
 
             # 5. Validar y traducir la solución real de Z3.
-            if solve_result.get("status") == "satisfiable":
+            if solve_result.get("status") == "satisfiable" and problem.people:
                 assignment = {}
 
                 for item in problem.items:
@@ -501,6 +498,19 @@ class NeurosymbolicCoordinator:
                     return result_base
 
                 result_base["status"] = "success"
+
+            elif solve_result.get("status") == "satisfiable":
+                result_base["solution_valid"] = True
+                result_base["status"] = "success"
+
+            elif solve_result.get("status") == "unsatisfiable":
+                # UNSAT es un resultado válido del solver, no un fallo de
+                # ejecución. El llamador puede decidir cómo actuar.
+                result_base["solution_valid"] = True
+                result_base["status"] = "success"
+
+            elif solve_result.get("status") == "skipped":
+                result_base["error"] = "No variables were formalized"
 
         except Exception as e:
             result_base["status"] = "error"
@@ -591,34 +601,43 @@ class NeurosymbolicCoordinator:
 
                 return f"{items[0]} == {items[1]} (same_person)"
 
-            elif ctype == "gt":
+            elif ctype in {"gt", "ge", "lt", "le", "eq"}:
                 var = constraint.items[0] if constraint.items else None
-                name = f"item_{var}" if var else None
+                name = (
+                    f"item_{var}"
+                    if var and problem.people
+                    else var
+                )
                 zvar = solver.variables.get(name) if name else None
                 if zvar is None:
                     return None
-                solver.solver.add(zvar > constraint.value)
+                operators = {
+                    "gt": zvar > constraint.value,
+                    "ge": zvar >= constraint.value,
+                    "lt": zvar < constraint.value,
+                    "le": zvar <= constraint.value,
+                    "eq": zvar == constraint.value,
+                }
+                symbols = {
+                    "gt": ">", "ge": ">=", "lt": "<",
+                    "le": "<=", "eq": "=",
+                }
+                solver.solver.add(operators[ctype])
                 if hasattr(solver, "constraints"):
-                    solver.constraints.append(f"{name} > {constraint.value}")
-                return f"{var} > {constraint.value}"
-
-            elif ctype == "lt":
-                var = constraint.items[0] if constraint.items else None
-                name = f"item_{var}" if var else None
-                zvar = solver.variables.get(name) if name else None
-                if zvar is None:
-                    return None
-                solver.solver.add(zvar < constraint.value)
-                if hasattr(solver, "constraints"):
-                    solver.constraints.append(f"{name} < {constraint.value}")
-                return f"{var} < {constraint.value}"
+                    solver.constraints.append(
+                        f"{name} {symbols[ctype]} {constraint.value}"
+                    )
+                return f"{var} {symbols[ctype]} {constraint.value}"
 
             elif ctype == "sum":
                 items = list(constraint.items or [])
                 if len(items) < 2:
                     return None
 
-                names = [f"item_{item}" for item in items]
+                names = [
+                    f"item_{item}" if problem.people else item
+                    for item in items
+                ]
                 zvars = [solver.variables.get(name) for name in names]
                 if any(var is None for var in zvars):
                     return None
@@ -712,25 +731,37 @@ class NeurosymbolicCoordinator:
             "z3_analysis": None,
             "pydatalog_analysis": None,
             "combined_conclusion": "",
-            "confidence": 0.8,
+            "confidence": 0.0,
             "executed_motors": [],
             "status": "success"
         }
 
-        # NetworkX
-        combined_result["networkx_analysis"] = self._run_networkx_reasoning(problem, context)
-        if combined_result["networkx_analysis"].get("status") == "success":
-            combined_result["executed_motors"].append("networkx")
+        expected = []
+        if problem.relations:
+            expected.append(("networkx", "networkx_analysis", self._run_networkx_reasoning))
+        if problem.constraints or (problem.items and problem.people):
+            expected.append(("z3", "z3_analysis", self._run_z3_reasoning))
+        if problem.facts or problem.rules:
+            expected.append(("pydatalog", "pydatalog_analysis", self._run_pydatalog_reasoning))
 
-        # Z3
-        combined_result["z3_analysis"] = self._run_z3_reasoning(problem, context)
-        if combined_result["z3_analysis"].get("status") == "success":
-            combined_result["executed_motors"].append("z3")
+        failures = []
+        for engine_name, result_key, runner in expected:
+            engine_output = runner(problem, context)
+            combined_result[result_key] = engine_output
+            if engine_output.get("status") == "success":
+                combined_result["executed_motors"].append(engine_name)
+            else:
+                failures.append({"engine": engine_name, "result": engine_output})
 
-        # PyDatalog
-        combined_result["pydatalog_analysis"] = self._run_pydatalog_reasoning(problem, context)
-        if combined_result["pydatalog_analysis"].get("status") == "success":
-            combined_result["executed_motors"].append("pydatalog")
+        if not expected:
+            combined_result["status"] = "formalization_error"
+            combined_result["formalization_error"] = True
+            combined_result["formalization_errors"] = [
+                "No symbolic component could be formalized"
+            ]
+        elif failures:
+            combined_result["status"] = "error"
+            combined_result["failures"] = failures
 
         # Generar conclusión basada en resultados reales
         conclusions = []
@@ -749,7 +780,10 @@ class NeurosymbolicCoordinator:
             conclusions.append("Logical inference completed")
 
         combined_result["combined_conclusion"] = " | ".join(conclusions) if conclusions else "Analysis completed"
-        combined_result["confidence"] = len(combined_result["executed_motors"]) / 3.0
+        combined_result["confidence"] = (
+            len(combined_result["executed_motors"]) / len(expected)
+            if expected else 0.0
+        )
 
         return combined_result
 
@@ -786,6 +820,11 @@ class NeurosymbolicCoordinator:
             "stats": self.stats,
             "reasoning_available": REASONING_AVAILABLE,
             "integration_status": "active" if REASONING_AVAILABLE else "fallback_only",
+            "engines": {
+                "networkx": GraphAnalyzer is not None,
+                "z3": ConstraintSolver is not None,
+                "pydatalog": PyDatalogEngine is not None,
+            },
             "timestamp": datetime.now().isoformat()
         }
 

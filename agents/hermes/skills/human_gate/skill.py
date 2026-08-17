@@ -7,7 +7,10 @@ import os
 import sys
 import json
 import logging
+import tempfile
+import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass, field
 
@@ -43,10 +46,52 @@ class HumanGate:
     including submitting review requests and processing human decisions.
     """
 
-    def __init__(self):
-        """Initialize with storage for review requests (simulated in-memory for now)"""
-        self.review_requests = []  # In production, this would be a persistent store
+    def __init__(self, storage_path: Optional[str] = None):
+        """Initialize the review ledger and restore previous decisions."""
+        selected = storage_path or os.getenv("HERMES_HUMAN_GATE_FILE")
+        self.storage_path = Path(selected).expanduser() if selected else None
+        self.review_requests: List[HumanReviewRequest] = []
+        self._load()
         logger.info("Human Gate initialized")
+
+    @staticmethod
+    def _serialize(review: HumanReviewRequest) -> Dict[str, Any]:
+        data = {field_name: getattr(review, field_name) for field_name in VALID_HR_FIELDS}
+        data["timestamp"] = review.timestamp.isoformat()
+        return data
+
+    @staticmethod
+    def _deserialize(data: Dict[str, Any]) -> HumanReviewRequest:
+        item = {key: value for key, value in data.items() if key in VALID_HR_FIELDS}
+        timestamp = item.get("timestamp")
+        if isinstance(timestamp, str):
+            item["timestamp"] = datetime.fromisoformat(timestamp)
+        return HumanReviewRequest(**item)
+
+    def _load(self) -> None:
+        if self.storage_path is None or not self.storage_path.exists():
+            return
+        try:
+            with self.storage_path.open("r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+            self.review_requests = [self._deserialize(item) for item in payload.get("reviews", [])]
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            logger.error("Could not load human review ledger: %s", exc)
+
+    def _save(self) -> None:
+        if self.storage_path is None:
+            return
+        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(prefix="human-gate-", suffix=".tmp", dir=str(self.storage_path.parent), text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump({"version": 1, "reviews": [self._serialize(review) for review in self.review_requests]}, handle, indent=2, ensure_ascii=False)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_name, self.storage_path)
+        except Exception:
+            Path(temp_name).unlink(missing_ok=True)
+            raise
 
     def submit_for_review(self,
                         task_description: str,
@@ -62,14 +107,14 @@ class HumanGate:
         Returns:
             HumanReviewRequest object with assigned review ID
         """
-        review_id = "review-" + datetime.now().strftime('%Y%m%d-%H%M%S')
+        review_id = "review-" + uuid.uuid4().hex
         # Prepare metadata
         task_metadata = {**metadata} if metadata else {}
         if task_description:
             # Use first word as task_id or generate UUID if empty
             task_id = task_description.split()[0] if task_description else "uid-" + datetime.now().strftime('%Y%m%d%H%M%S')
             task_metadata = task_metadata.copy()
-            task_metadata["task_id"] = task_id
+            task_metadata.setdefault("task_id", task_id)
         
         # Filter metadata to only include valid HumanReviewRequest fields
         filtered_metadata = {k: v for k, v in task_metadata.items() if k in VALID_HR_FIELDS}
@@ -82,6 +127,7 @@ class HumanGate:
             **filtered_metadata
         )
         self.review_requests.append(review)
+        self._save()
         logger.info(f"Submitted review request: {review_id}")
         return review
 
@@ -126,7 +172,7 @@ class HumanGate:
                     return False
                 
                 logger.info(f"Processed review {review_id}: {action}")
-                self.review_requests = [r for r in self.review_requests if r.review_id != review_id]
+                self._save()
                 return True
         
         logger.error(f"Review not found: {review_id}")

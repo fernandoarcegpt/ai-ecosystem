@@ -88,6 +88,20 @@ class GraphAnalyzer:
         if self.is_acyclic():
             return list(nx.topological_sort(self.graph))
         return None
+
+    def find_shortest_path(self, source: str, target: str) -> Optional[List[str]]:
+        """Devuelve la ruta dirigida más corta o ``None`` si no existe."""
+        try:
+            return list(nx.shortest_path(self.graph, source, target))
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            return None
+
+    def visualize_structure(self) -> Dict[str, List[Any]]:
+        """Representación serializable del grafo, sin depender de una UI."""
+        return {
+            "nodes": list(self.graph.nodes()),
+            "edges": list(self.graph.edges()),
+        }
     
     def analyze(self) -> Dict[str, Any]:
         """

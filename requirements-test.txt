@@ -1,0 +1,5 @@
+networkx==3.6.1
+pyDatalog==0.22.4
+PyYAML==6.0.3
+pytest==9.1.1
+z3-solver==5.1.0.0

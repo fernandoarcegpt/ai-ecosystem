@@ -380,7 +380,7 @@ class ProblemExtractor:
         # --------------------------------------------------
 
         if re.search(
-            r"\b[A-Za-z_]\w*\s*(?:>|<|=)\s*-?\d+",
+            r"\b[A-Za-z_]\w*\s*(?:>=|<=|>|<|=)\s*-?\d+",
             text,
         ):
             merge_component(cls.extract_constraints_problem(text))
@@ -461,7 +461,6 @@ class ProblemExtractor:
             problem.rules = list(context["rules"])
 
         if context.get("constraints"):
-            problem.constraints = []
             for raw in context["constraints"]:
                 if isinstance(raw, SymbolicConstraint):
                     problem.constraints.append(raw)
@@ -474,6 +473,12 @@ class ProblemExtractor:
                             people=list(raw.get("people", [])),
                             description=raw.get("description", ""),
                         )
+                    )
+                elif isinstance(raw, str):
+                    parsed = cls.extract_constraints_problem(raw)
+                    problem.constraints.extend(parsed.constraints)
+                    problem.items = cls._unique(
+                        list(problem.items) + list(parsed.items)
                     )
 
         if context.get("structural_indicators"):
@@ -619,14 +624,20 @@ class ProblemExtractor:
 
         relations: List[List[str]] = []
 
-        # A -> B / A → B
-        for left, right in re.findall(
-            r"\b([A-Za-zÁÉÍÓÚÜÑáéíóúüñ_][\wÁÉÍÓÚÜÑáéíóúüñ_-]*)"
-            r"\s*(?:->|→)\s*"
-            r"([A-Za-zÁÉÍÓÚÜÑáéíóúüñ_][\wÁÉÍÓÚÜÑáéíóúüñ_-]*)\b",
-            text,
-        ):
-            relations.append([left, right])
+        # A -> B -> C / A → B → C. Extraer la cadena completa evita que
+        # ``re.findall`` pierda B -> C por usar coincidencias no solapadas.
+        node_pattern = (
+            r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ_]"
+            r"[\wÁÉÍÓÚÜÑáéíóúüñ_-]*"
+        )
+        chain_pattern = re.compile(
+            rf"\b{node_pattern}(?:\s*(?:->|→)\s*{node_pattern})+\b"
+        )
+        for chain_match in chain_pattern.finditer(text):
+            nodes = re.findall(node_pattern, chain_match.group(0))
+            relations.extend(
+                [left, right] for left, right in zip(nodes, nodes[1:])
+            )
 
         # "A depende de B" -> B -> A
         for dependent, dependency in re.findall(
@@ -667,7 +678,7 @@ class ProblemExtractor:
 
     @staticmethod
     def extract_logic_problem(text: str) -> SymbolicProblem:
-        """Extrae hechos familiares simples y una regla directa de ancestro."""
+        """Extrae hechos familiares y las reglas directa/transitiva de ancestro."""
         problem = SymbolicProblem(
             mode=ReasoningMode.LOGIC,
             source_query=text,
@@ -698,6 +709,13 @@ class ProblemExtractor:
                     "body": "parent(X, Y)",
                 }
             )
+            problem.rules.append(
+                {
+                    "name": "ancestor_transitive",
+                    "head": "ancestor(X, Z)",
+                    "body": "parent(X, Y) & ancestor(Y, Z)",
+                }
+            )
 
         return problem
 
@@ -714,6 +732,36 @@ class ProblemExtractor:
             mode=ReasoningMode.CONSTRAINTS,
             source_query=text,
         )
+
+        for var, val in re.findall(
+            r"\b([A-Za-z_]\w*)\s*>=\s*(-?\d+)\b",
+            text,
+        ):
+            problem.constraints.append(
+                SymbolicConstraint(
+                    type="ge",
+                    value=int(val),
+                    items=[var],
+                    description=f"{var} >= {val}",
+                )
+            )
+            if var not in problem.items:
+                problem.items.append(var)
+
+        for var, val in re.findall(
+            r"\b([A-Za-z_]\w*)\s*<=\s*(-?\d+)\b",
+            text,
+        ):
+            problem.constraints.append(
+                SymbolicConstraint(
+                    type="le",
+                    value=int(val),
+                    items=[var],
+                    description=f"{var} <= {val}",
+                )
+            )
+            if var not in problem.items:
+                problem.items.append(var)
 
         for var, val in re.findall(
             r"\b([A-Za-z_]\w*)\s*>\s*(-?\d+)\b",
@@ -760,5 +808,27 @@ class ProblemExtractor:
             for var in (x, y):
                 if var not in problem.items:
                     problem.items.append(var)
+
+        # Igualdad de una sola variable. Primero retiramos las sumas ya
+        # reconocidas para no interpretar ``y = 10`` dentro de ``x + y = 10``.
+        single_equality_text = re.sub(
+            r"\b[A-Za-z_]\w*\s*\+\s*[A-Za-z_]\w*\s*=\s*-?\d+\b",
+            "",
+            text,
+        )
+        for var, val in re.findall(
+            r"\b([A-Za-z_]\w*)\s*(?<![<>])=\s*(-?\d+)\b",
+            single_equality_text,
+        ):
+            problem.constraints.append(
+                SymbolicConstraint(
+                    type="eq",
+                    value=int(val),
+                    items=[var],
+                    description=f"{var} = {val}",
+                )
+            )
+            if var not in problem.items:
+                problem.items.append(var)
 
         return problem

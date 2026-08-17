@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "echo \"Test suite placeholder\" && exit 0",
+    "test": "npm run test:core",
+    "test:core": "PYTHONPATH=.:./skilled python3 -m pytest -q skilled/reasoning/test_neuro_symbolic_system.py tests/test_neurosymbolic_corrected.py tests/test_neurosymbolic_acceptance.py tests/test_task_execution.py tests/test_semantic_router/test_core_modes.py skills/reasoning/hermes-symbolic-integration/test_symbolic_integration.py test_neurosymbolic.py skilled/reasoning/test_integration.py",
     "cbm:install": "npm install -g codebase-memory-mcp@0.8.1",
     "cbm:index": "codebase-memory-mcp cli index_repository '{\"repo_path\": \".\"}' --progress",
     "cbm:search": "codebase-memory-mcp cli search_code '{\"pattern\": \"$QUERY\", \"limit\": 5}'",
