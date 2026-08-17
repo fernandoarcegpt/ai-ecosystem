@@ -20,16 +20,8 @@ jobs:
           cache: pip
       - name: Install test dependencies
         run: python -m pip install -r requirements-test.txt
-      - name: Run core acceptance suite
-        env:
-          PYTHONPATH: .:./skilled
-        run: >-
-          python -m pytest -q
-          skilled/reasoning/test_neuro_symbolic_system.py
-          tests/test_neurosymbolic_corrected.py
-          tests/test_neurosymbolic_acceptance.py
-          tests/test_task_execution.py
-          tests/test_semantic_router/test_core_modes.py
-          skills/reasoning/hermes-symbolic-integration/test_symbolic_integration.py
-          test_neurosymbolic.py
-          skilled/reasoning/test_integration.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run complete reproducible verification
+        run: npm run verify:all

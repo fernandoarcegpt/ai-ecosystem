@@ -77,6 +77,37 @@ def register(ctx):
                     )
                     return None
 
+                # Autonomous execution is deliberately explicit and opt-in.
+                # Ordinary prompts still follow the read-only reasoning path.
+                if user_message.strip().lower().startswith("/orchestrate "):
+                    if os.getenv("HERMES_AUTONOMY_ENABLED") != "1":
+                        return {
+                            "context": (
+                                "Ejecución autónoma no habilitada. Configure "
+                                "HERMES_AUTONOMY_ENABLED=1 para usar /orchestrate."
+                            )
+                        }
+                    from orchestration.hermes_bridge import run_from_hermes
+
+                    orchestration = run_from_hermes(user_message)
+                    distribution = orchestration["task_report"][
+                        "status_distribution"
+                    ]
+                    completed = int(distribution.get("completed", 0))
+                    blocked = int(distribution.get("blocked", 0))
+                    failed = int(distribution.get("failed", 0))
+                    _write_proof(
+                        "AUTONOMY_COMPLETED="
+                        f"{completed} BLOCKED={blocked} FAILED={failed}"
+                    )
+                    return {
+                        "context": (
+                            "Resultado autónomo verificable: "
+                            f"completed={completed}, blocked={blocked}, "
+                            f"failed={failed}."
+                        )
+                    }
+
                 integration = get_symbolic_integration()
 
                 # Delegar detección, formalización, selección de motor y ejecución

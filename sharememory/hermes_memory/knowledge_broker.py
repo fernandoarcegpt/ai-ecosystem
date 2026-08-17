@@ -27,8 +27,8 @@ Index the default ecosystem::
 Declare additional owned projects::
 
     python3 knowledge_broker.py ingest \
-        --own-project /home/fernando/ai-ecosystem/hermes \
-        --own-project /home/fernando/ai-ecosystem/sharememory
+        --own-project /path/to/ai-ecosystem/hermes \
+        --own-project /path/to/ai-ecosystem/sharememory
 
 Search indexed knowledge::
 
@@ -37,11 +37,11 @@ Search indexed knowledge::
 Environment variables
 ---------------------
 HERMES_MEMORY_DIR
-    Memory directory. Defaults to
-    /home/fernando/ai-ecosystem/sharememory/hermes_memory
+    Memory directory. Defaults to ``sharememory/hermes_memory`` inside the
+    checkout containing this module.
 
 HERMES_PROJECT_ROOT
-    Ecosystem root. Defaults to /home/fernando/ai-ecosystem
+    Ecosystem root. Defaults to the checkout containing this module.
 
 HERMES_OWN_PROJECTS
     Colon-separated owned project paths.
@@ -69,7 +69,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional, Sequence, Set, Tuple
 
 
-DEFAULT_PROJECT_ROOT = Path("/home/fernando/ai-ecosystem")
+DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MEMORY_DIR = DEFAULT_PROJECT_ROOT / "sharememory" / "hermes_memory"
 
 # Directories that normally contain generated, vendored, cached or private data.

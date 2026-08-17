@@ -80,3 +80,38 @@ def test_plugin_ignores_non_cli_platform(tmp_path, monkeypatch):
     )
     assert result is None
     assert "CONTEXT_INJECTED" not in proof.read_text(encoding="utf-8")
+
+
+def test_explicit_orchestration_command_runs_through_hermes_hook(
+    tmp_path,
+    monkeypatch,
+):
+    proof = tmp_path / "hook-proof.log"
+    monkeypatch.setenv("HERMES_NEUROSYMBOLIC_PROOF_LOG", str(proof))
+    monkeypatch.setenv("HERMES_AUTONOMY_ENABLED", "1")
+
+    import orchestration.hermes_bridge as bridge
+
+    monkeypatch.setattr(
+        bridge,
+        "run_from_hermes",
+        lambda message: {
+            "task_report": {
+                "status_distribution": {
+                    "completed": 4,
+                    "blocked": 0,
+                    "failed": 0,
+                }
+            }
+        },
+    )
+    plugin = _load_plugin()
+    ctx = FakeHermesContext()
+    plugin.register(ctx)
+    result = ctx.hooks["pre_llm_call"](
+        user_message="/orchestrate Implementar y verificar el cambio",
+        platform="cli",
+    )
+
+    assert "completed=4" in result["context"]
+    assert "AUTONOMY_COMPLETED=4 BLOCKED=0 FAILED=0" in proof.read_text()

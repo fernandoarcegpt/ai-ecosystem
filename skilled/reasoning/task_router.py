@@ -88,12 +88,12 @@ class TaskRouter:
     def decompose_objective(self, objective: str) -> List[Task]:
         """Crea un plan lineal mínimo con identificadores consistentes."""
         lower = objective.lower()
-        if "verificar" in lower or "probar" in lower:
-            templates = [("Verificar resultado", "qa")]
+        if "implementar" in lower or "corregir" in lower:
+            templates = [("Analizar alcance", "analysis"), ("Diseñar cambio", "design"), ("Implementar cambio", "implementation"), ("Verificar cambio", "qa")]
         elif "investigar" in lower:
             templates = [("Definir criterios", "analysis"), ("Investigar fuentes", "research"), ("Sintetizar hallazgos", "documentation")]
-        elif "implementar" in lower or "corregir" in lower:
-            templates = [("Analizar alcance", "analysis"), ("Diseñar cambio", "design"), ("Implementar cambio", "implementation"), ("Verificar cambio", "qa")]
+        elif "verificar" in lower or "probar" in lower:
+            templates = [("Verificar resultado", "qa")]
         else:
             templates = [("Analizar objetivo", "analysis"), ("Producir resultado", "implementation"), ("Verificar resultado", "qa")]
 

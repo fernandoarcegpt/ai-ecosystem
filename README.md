@@ -16,6 +16,11 @@ neurosimbólico, enrutamiento de tareas y memoria persistente.
   después de reiniciar el proceso.
 - Integración de razonamiento en el flujo CLI de Hermes mediante el plugin
   `agents/hermes/plugins/neurosymbolic-integration`.
+- Orquestación explícita desde Hermes mediante `/orchestrate`, con agentes por
+  rol, dependencias, verificación, memoria e historial de ejecución.
+- Mejora continua conectada automáticamente a los informes de tareas.
+- Dataset de evaluación reproducible con 72 casos autorizados y sintéticos.
+- Inventario y evaluación por fragmentos de materiales extensos de texto/PDF.
 
 El sistema formaliza únicamente relaciones y restricciones que puede
 reconocer o que recibe de forma estructurada. Una lista plana de nombres no
@@ -53,6 +58,16 @@ Ese comando ejecuta la suite de aceptación usada por CI. Comprueba:
 GitHub Actions ejecuta la misma selección en cada pull request y en los
 pushes a `main`.
 
+La comprobación reproducible completa se ejecuta con:
+
+```bash
+npm run verify:all
+```
+
+Incluye tests, auditoría de prompts/skills/servicios y reconstrucción exacta
+del dataset. Las integraciones que requieren los binarios y credenciales del
+host se prueban conjuntamente con `npm run verify:all-live`.
+
 ### Verificación real con Hermes CLI
 
 Hermes descubre plugins de usuario en `~/.hermes/plugins/`. En una instalación de desarrollo se puede enlazar este plugin sin duplicarlo:
@@ -79,10 +94,12 @@ Si el destino ya existe, revísalo y no lo sobrescribas. La prueba ejecuta `herm
 | `skilled/reasoning/task_router.py` | Plan, ejecución, verificación y reanudación |
 | `skilled/reasoning/operational_decision.py` | Árbol operativo central y auditable |
 | `skilled/reasoning/claude_code_executor.py` | Ejecutor opt-in de Claude Code en modo JSON |
+| `skilled/orchestration/` | Registro de agentes, orquestador y puente Hermes |
 | `agents/hermes/skills/human_gate/skill.py` | Libro persistente de revisiones humanas |
 | `sharememory/hermes_memory/knowledge_broker.py` | Memoria persistente y búsqueda |
 | `sharememory/hermes_memory/work_memory.py` | Captura de resultados verificados |
 | `skilled/improvement/` | Evidencia de mejora continua y datasets de evaluación |
+| `datasets/evaluation/` | Dataset sintético versionado para evaluación comparativa |
 
 ## Ejemplo de razonamiento
 
@@ -134,6 +151,35 @@ router = TaskRouter(executors={"builder": executor})
 
 El adaptador usa `claude -p --output-format json --json-schema ...` y solo declara una implementación verificada cuando Claude devuelve evidencia y `tests_passed: true`.
 
+Hermes puede iniciar el flujo completo únicamente con una orden explícita y
+la habilitación del host:
+
+```bash
+export HERMES_AUTONOMY_ENABLED=1
+hermes chat -q "/orchestrate Implementar y verificar el cambio"
+```
+
+Los mensajes ordinarios nunca disparan ejecución autónoma. La prueba real usa
+un repositorio temporal y se ejecuta con `npm run test:hermes-autonomy-live`.
+
+## Dataset y materiales extensos
+
+El dataset versionado se reconstruye de manera determinista:
+
+```bash
+PYTHONPATH=.:./skilled python3 scripts/build_evaluation_dataset.py
+```
+
+Contiene 72 casos sintéticos, sin datos de usuario, separados en entrenamiento,
+validación y evaluación. No autoriza fine-tuning; primero exige una mejora
+comparativa medible.
+
+Para inventariar, fragmentar y detectar duplicados en materiales disponibles:
+
+```bash
+PYTHONPATH=.:./skilled python3 scripts/evaluate_materials.py archivo.pdf libro.txt
+```
+
 ## Memoria versionable
 
 La memoria de ejecución permanece fuera del snapshot versionado. Solo entradas marcadas como `verified`/`validated` y con confianza suficiente se exportan:
@@ -145,12 +191,14 @@ PYTHONPATH=. python -m sharememory.hermes_memory.knowledge_broker \
 
 `BasicMemory` usa ahora `basic_memory.json`; ya no comparte el esquema incompatible de `memory.json` con `KnowledgeBroker`.
 
-## Límites actuales
+## Límites verificables
 
 - El parser de lenguaje natural cubre patrones explícitos, no comprensión
   lingüística general.
-- Los ejecutores se inyectan de forma explícita. Existe un adaptador de Claude Code, pero una ejecución real requiere el binario y autenticación del host.
-- El contrato del plugin y sus tres motores tienen pruebas automáticas. La validación contra el proceso Hermes instalado se ejecuta aparte con `npm run test:hermes-cli`.
+- Los ejecutores externos requieren binario, autenticación y presupuesto del host.
+- OpenClaw, Proyecto Japonés, Hermes Workspace y Scrubs no existen como
+  componentes identificables en este árbol; su auditoría queda cerrada como
+  `not_present` hasta recibir una fuente canónica.
 - Los árboles históricos y respaldos del repositorio se conservan; la suite
   central usa las rutas enumeradas en `package.json` y en CI.
 

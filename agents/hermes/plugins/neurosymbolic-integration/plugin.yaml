@@ -1,6 +1,6 @@
 name: neurosymbolic-integration
 version: "1.0.0"
-description: Integration layer between Hermes and the neuro-symbolic reasoning engine
+description: Neuro-symbolic reasoning and explicit opt-in task orchestration for Hermes
 author: "You (fernando)"
 kind: standalone
 provides_tools: []

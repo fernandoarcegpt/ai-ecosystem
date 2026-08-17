@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "scope": "tracked repository tree",
+  "components": [
+    {
+      "name": "OpenClaw",
+      "status": "not_present",
+      "evidence": "No source, manifest, submodule or configured service found",
+      "required_to_extend_evaluation": "canonical repository URL"
+    },
+    {
+      "name": "Proyecto Japonés",
+      "status": "not_present",
+      "evidence": "No source, manifest, submodule or configured service found",
+      "required_to_extend_evaluation": "canonical repository URL"
+    },
+    {
+      "name": "Hermes Workspace",
+      "status": "not_present",
+      "evidence": "No independently identifiable component found",
+      "required_to_extend_evaluation": "canonical repository URL or package name"
+    },
+    {
+      "name": "Scrubs",
+      "status": "not_present",
+      "evidence": "No source, manifest, submodule or configured service found",
+      "required_to_extend_evaluation": "canonical repository URL"
+    }
+  ],
+  "conclusion": "No integration claim is made for components absent from the supplied repository."
+}

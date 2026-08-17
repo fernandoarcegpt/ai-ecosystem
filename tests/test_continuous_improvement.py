@@ -4,6 +4,7 @@ import pytest
 
 from improvement.continuous_improvement import ContinuousImprovementAgent
 from improvement.dataset_builder import EvaluationDatasetBuilder
+from scripts.build_evaluation_dataset import build
 
 
 def test_repeated_blocks_create_evidence_backed_improvement():
@@ -72,3 +73,11 @@ def test_fine_tuning_is_rejected_without_enough_evaluation_examples():
     )
     assert result["recommended"] is False
     assert result["reason"] == "insufficient_evaluation_examples"
+
+
+def test_repository_dataset_has_train_validation_and_evaluation_splits(tmp_path):
+    manifest = build(str(tmp_path))
+    assert manifest["quality"]["total"] == 72
+    assert manifest["quality"]["ready_for_comparative_evaluation"] is True
+    assert manifest["contains_user_data"] is False
+    assert manifest["fine_tuning_authorized"] is False
