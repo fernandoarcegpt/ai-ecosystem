@@ -402,3 +402,9 @@ notex/
 ollama/
 zlibrary-mcp/
 patches/**/diff.txt
+auth.json
+*.db
+cache/
+sessions/
+memories/
+hindsight/

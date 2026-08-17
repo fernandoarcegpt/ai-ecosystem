@@ -1,0 +1,8 @@
+name: neurosymbolic-integration
+version: "1.0.0"
+description: Integration layer between Hermes and the neuro-symbolic reasoning engine
+author: "You (fernando)"
+kind: standalone
+provides_tools: []
+provides_hooks:
+  - pre_llm_call
