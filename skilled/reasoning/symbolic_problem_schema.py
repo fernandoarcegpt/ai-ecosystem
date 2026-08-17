@@ -241,54 +241,158 @@ class ProblemExtractor:
         context: Optional[Dict[str, Any]] = None,
     ) -> SymbolicProblem:
         """
-        Punto único de extracción.
+        Extrae y fusiona estructuras simbólicas explícitas.
 
-        Prioriza estructuras inequívocas:
-        asignación -> grafos -> lógica -> restricciones.
-        Luego fusiona contexto estructurado explícito si existe.
+        No usa una cadena exclusiva de prioridades: una consulta puede
+        contener simultáneamente grafos, restricciones y lógica.
         """
         context = context or {}
         lower = text.lower()
 
-        if (
-            ("entre" in lower and any(
-                verb in lower
-                for verb in ("reparte", "asigna", "asignar", "distribuye", "distribuir")
-            ))
-            or (context.get("items") and context.get("people"))
-        ):
-            problem = cls.extract_assignable_entities(text)
+        problem = SymbolicProblem(
+            mode=ReasoningMode.NONE,
+            source_query=text,
+        )
 
-        elif (
-            "depende de" in lower
-            or "depends on" in lower
-            or "dependencia" in lower
-            or "dependencias" in lower
-            or "grafo" in lower
-            or "ciclo" in lower
-            or "→" in text
-            or "->" in text
-        ):
-            problem = cls.extract_graph_problem(text)
-
-        elif any(
-            word in lower
-            for word in ("padre", "madre", "hijo", "hija", "ancestro", "antepasado")
-        ):
-            problem = cls.extract_logic_problem(text)
-
-        elif re.search(r"\b[A-Za-z_]\w*\s*(?:>|<|=)\s*-?\d+", text):
-            problem = cls.extract_constraints_problem(text)
-
-        else:
-            problem = SymbolicProblem(
-                mode=ReasoningMode.NONE,
-                source_query=text,
+        def merge_component(component: SymbolicProblem) -> None:
+            problem.entities = cls._unique(
+                list(problem.entities) + list(component.entities)
             )
+            problem.items = cls._unique(
+                list(problem.items) + list(component.items)
+            )
+            problem.people = cls._unique(
+                list(problem.people) + list(component.people)
+            )
+
+            problem.facts.extend(component.facts)
+            problem.rules.extend(component.rules)
+            problem.constraints.extend(component.constraints)
+
+            for relation in component.relations:
+                if relation not in problem.relations:
+                    problem.relations.append(relation)
+
+            problem.variables.update(component.variables)
+            problem.structural_indicators.update(
+                component.structural_indicators
+            )
+
+        # --------------------------------------------------
+        # ASIGNACIONES / RESTRICCIONES
+        # --------------------------------------------------
+
+        assignment_trigger = (
+            "entre" in lower
+            and any(
+                verb in lower
+                for verb in (
+                    "reparte",
+                    "asigna",
+                    "asignar",
+                    "distribuye",
+                    "distribuir",
+                )
+            )
+        )
+
+        if assignment_trigger:
+            merge_component(cls.extract_assignable_entities(text))
+
+        # --------------------------------------------------
+        # GRAFOS
+        #
+        # "ciclo" o "grafo" solos NO bastan.
+        # Exigimos relaciones formalizables.
+        # --------------------------------------------------
+
+        has_arrow = "->" in text or "→" in text
+
+        dependency_pattern_es = re.search(
+            r"\b[A-Za-zÁÉÍÓÚÜÑáéíóúüñ_][\wÁÉÍÓÚÜÑáéíóúüñ_-]*"
+            r"\s+depende\s+de\s+"
+            r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ_][\wÁÉÍÓÚÜÑáéíóúüñ_-]*\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        dependency_pattern_en = re.search(
+            r"\b[A-Za-z_][\w_-]*\s+depends\s+on\s+"
+            r"[A-Za-z_][\w_-]*\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        if has_arrow or dependency_pattern_es or dependency_pattern_en:
+            graph_problem = cls.extract_graph_problem(text)
+
+            # Una dependencia humana desnuda puede ser laboral,
+            # económica, emocional, técnica, etc.
+            # Formalizamos la relación, pero NO la tratamos como
+            # evidencia determinista sin revisión.
+            graph_context_words = (
+                "grafo",
+                "dependencia",
+                "dependencias",
+                "orden topológico",
+                "orden topologico",
+                "topología",
+                "topologia",
+                "ciclo",
+                "arista",
+                "nodo",
+            )
+
+            if (
+                (dependency_pattern_es or dependency_pattern_en)
+                and not has_arrow
+                and not any(word in lower for word in graph_context_words)
+            ):
+                graph_problem.structural_indicators[
+                    "human_review"
+                ] = True
+                graph_problem.structural_indicators[
+                    "review_reason"
+                ] = "bare_dependency_relation_is_ambiguous"
+
+            merge_component(graph_problem)
+
+        # --------------------------------------------------
+        # LÓGICA FAMILIAR
+        #
+        # Requiere una proposición explícita "X es madre/padre de Y".
+        # Así "placa madre de mi computadora" no activa PyDatalog.
+        # --------------------------------------------------
+
+        kinship_fact = re.search(
+            r"\b[A-Za-zÁÉÍÓÚÜÑáéíóúüñ_-]+\s+"
+            r"es\s+(?:padre|madre)\s+de\s+"
+            r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ_-]+\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        if kinship_fact:
+            merge_component(cls.extract_logic_problem(text))
+
+        # --------------------------------------------------
+        # RESTRICCIONES ARITMÉTICAS
+        # --------------------------------------------------
+
+        if re.search(
+            r"\b[A-Za-z_]\w*\s*(?:>|<|=)\s*-?\d+",
+            text,
+        ):
+            merge_component(cls.extract_constraints_problem(text))
+
+        # --------------------------------------------------
+        # CONTEXTO ESTRUCTURADO EXPLÍCITO
+        # --------------------------------------------------
 
         cls._merge_structured_context(problem, context)
         cls._infer_mode_from_structure(problem)
         problem.validate_entities()
+
         return problem
 
     @classmethod
@@ -429,8 +533,9 @@ class ProblemExtractor:
         # Personas: solo el primer segmento tras "entre", antes de comenzar
         # las restricciones.
         people_segment = re.split(
-            r"[.;]|\b(?:máximo|maximo|como\s+máximo|como\s+maximo|"
-            r"con\s+un\s+máximo|con\s+un\s+maximo)\b",
+            r"[.;]|"
+            r",\s*(?=(?:con\s+)?(?:un\s+)?(?:máximo|maximo)\b)|"
+            r"\b(?:con\s+)?(?:un\s+)?(?:máximo|maximo)\b",
             right,
             maxsplit=1,
             flags=re.IGNORECASE,
@@ -466,11 +571,22 @@ class ProblemExtractor:
 
         # "A y B no pueden estar en la misma persona"
         different_patterns = [
+            # A y B no pueden estar juntas/juntos
+            r"\b([A-Za-z0-9_]+)\s+y\s+([A-Za-z0-9_]+)\s+"
+            r"no\s+pueden\s+estar\s+(?:juntas|juntos)\b",
+
+            # A y B no pueden estar en la misma persona
             r"\b([A-Za-z0-9_]+)\s+y\s+([A-Za-z0-9_]+)\s+"
             r"no\s+pueden\s+estar\s+en\s+la\s+misma\s+persona\b",
+
+            # A y B no pueden asignarse a la misma persona
             r"\b([A-Za-z0-9_]+)\s+y\s+([A-Za-z0-9_]+)\s+"
-            r"no\s+pueden\s+(?:asignarse|ser\s+asignados?)\s+"
+            r"no\s+pueden\s+(?:asignarse|ser\s+asignados?|ser\s+asignadas?)\s+"
             r"(?:a|en)\s+la\s+misma\s+persona\b",
+
+            # A y B deben estar separadas/separados
+            r"\b([A-Za-z0-9_]+)\s+y\s+([A-Za-z0-9_]+)\s+"
+            r"deben\s+estar\s+(?:separadas|separados)\b",
         ]
 
         for pattern in different_patterns:
@@ -561,7 +677,7 @@ class ProblemExtractor:
             (
                 "parent",
                 r"\b([A-Za-zÁÉÍÓÚÜÑáéíóúüñ_-]+)\s+"
-                r"(?:es\s+)?(?:padre|madre)\s+de\s+"
+                r"es\s+(?:padre|madre)\s+de\s+"
                 r"([A-Za-zÁÉÍÓÚÜÑáéíóúüñ_-]+)\b",
             ),
         ]

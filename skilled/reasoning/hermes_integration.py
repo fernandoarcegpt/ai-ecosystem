@@ -93,6 +93,27 @@ class HermesSymbolIntegration:
         if problem.mode == ReasoningMode.NONE:
             return None
 
+        # Una estructura formalizable puede seguir siendo semánticamente
+        # ambigua. En ese caso NO inyectar evidencia determinista.
+        if problem.structural_indicators.get("human_review"):
+            return {
+                "status": "human_review",
+                "reasoning_applied": False,
+                "engine_used": "none",
+                "analysis": {
+                    "human_review": True,
+                    "review_reason": problem.structural_indicators.get(
+                        "review_reason",
+                        "ambiguous_symbolic_formalization",
+                    ),
+                    "formalized_problem": problem.to_dict(),
+                },
+                "results": {},
+                "evidence": {},
+                "error": None,
+                "formalization_errors": [],
+            }
+
         self.logger.warning(
             "[neurosymbolic] formalized mode=%s relations=%d "
             "constraints=%d items=%d people=%d facts=%d rules=%d",
