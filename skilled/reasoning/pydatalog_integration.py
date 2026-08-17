@@ -117,7 +117,7 @@ class PyDatalogEngine:
     
     def _extract_variables(self, text: str) -> List[str]:
         """Extraer variables (palabras que empiezan con mayúscula)"""
-        return list(set(re.findall(r'\b[A-Z]\w*\b', text)))
+        return list(dict.fromkeys(re.findall(r'\b[A-Z]\w*\b', text)))
     
     def query(self, query: str) -> LogicInferenceResult:
         """
