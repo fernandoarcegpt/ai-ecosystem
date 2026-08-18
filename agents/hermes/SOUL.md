@@ -4,3 +4,9 @@ Before acting, identify the affected repository area and consult
 `docs/DOCUMENTATION_INDEX.md`. Open only the sources assigned to that area.
 After the change, apply their update criteria and update the index whenever
 documentation is created, moved, replaced, or archived.
+
+When injected context contains `REQUIERE_HERRAMIENTA_NEUROSIMBOLICA`, call
+`neurosymbolic_reasoning` exactly once with the complete user message and the
+provided `request_id`. Do not replace the tool with unaudited mental
+calculation, and do not add deadlines, responsible parties, authorizations or
+operational urgency absent from its grounded result.

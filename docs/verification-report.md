@@ -1,16 +1,17 @@
 # Informe de verificación integral (sin seguridad)
 
-Fecha de corte: 2026-08-17.
+Fecha de corte: 2026-08-18.
 
 ## Resultado ejecutivo
 
-El núcleo reproducible pasó **81 pruebas** e integra razonamiento neurosimbólico, tareas persistentes,
+El núcleo reproducible pasó **87 pruebas** e integra razonamiento neurosimbólico, tareas persistentes,
 agentes por rol, ejecución mediante Claude Code, memoria versionable, mejora
 continua, dataset y evaluación de materiales extensos. Las pruebas reales ya
-aportadas en el host verificaron Hermes CLI con NetworkX/Z3/PyDatalog y Claude
-Code mediante `TaskRouter`. La ejecución conjunta `npm run verify:all-live`
-también terminó correctamente, incluida la ruta Hermes → orquestador → Claude
-Code con verificación independiente.
+aportadas en el host verificaron la integración anterior de Hermes CLI con
+NetworkX/Z3/PyDatalog y Claude Code mediante `TaskRouter`. Tras migrar a una
+tool call oficial, la suite local está verificada y la nueva prueba CLI real
+queda pendiente en el host. La ejecución conjunta histórica
+`npm run verify:all-live` terminó correctamente antes de esta migración.
 
 La seguridad permanece fuera de alcance por indicación del propietario. Los
 componentes externos que no existen en el árbol se registran como `not_present`;
@@ -20,9 +21,9 @@ no se inventa una evaluación sin URL o paquete inequívoco.
 
 | Parte | Estado y evidencia |
 |---|---|
-| NetworkX, PyDatalog y Z3 | Verificado por suite y Hermes CLI real |
+| NetworkX, PyDatalog y Z3 | Verificado por suite; revalidación de tool call en Hermes CLI pendiente |
 | Composición NetworkX → PyDatalog → Z3/Optimize | Verificada con transferencia explícita de hechos y restricciones |
-| Plan de Transferencias Documentales 2027 | Regresión E2E permanente; extracción, tres motores e inyección Hermes |
+| Plan de Transferencias Documentales 2027 | Regresión E2E permanente; extracción, tres motores, alcance y soporte de afirmaciones |
 | Ciclos, contradicciones, SAT/UNSAT e inferencia transitiva | Verificado |
 | Activación y no activación del razonador | Verificado |
 | Persistencia y dependencias de tareas | Verificado |
@@ -31,7 +32,7 @@ no se inventa una evaluación sin URL o paquete inequívoco.
 | Reanudación manual y automática | Verificado |
 | Persistencia de decisiones humanas | Verificado |
 | Captura y recuperación de resultados en memoria | Verificado |
-| `npm test` y GitHub Actions | Verificado localmente: 81 pruebas aprobadas; CI se valida en el PR |
+| `npm test` y GitHub Actions | Verificado localmente: 87 pruebas aprobadas; CI se valida en el PR |
 | Autonomía real dentro de Hermes | Verificada extremo a extremo con `/orchestrate` y Claude Code real |
 | Hermes CLI con los tres motores | Verificado extremo a extremo, 3/3 |
 | Informe de bloqueo completo | Verificado: evidencia, alternativas, riesgos y siguiente acción |
@@ -102,14 +103,18 @@ ejecución permanece separada del snapshot versionable validado.
 
 ### 10. Capacidad neurosimbólica
 
-NetworkX, Z3 y PyDatalog se seleccionan y ejecutan automáticamente. En modo
+NetworkX, Z3 y PyDatalog se seleccionan y ejecutan automáticamente desde la
+herramienta oficial `neurosymbolic_reasoning`. `pre_llm_call` solo detecta y
+requiere la llamada; no ejecuta motores ocultos. En modo
 `combined`, NetworkX aporta relaciones alcanzables a PyDatalog; sus hechos
 derivados se convierten en restricciones para Z3/Optimize y la coordinación
 solo se declara exitosa si pasan todos los motores requeridos. La regresión
 del Plan de Transferencias 2027 verifica `blocked(RRHH)`,
 `requires_correction(Contabilidad)`, capacidad, objetivo institucional e
-inyección anidada. La prueba real previa `test:hermes-cli` verificó ejecución
-e inyección individual de los tres motores.
+inyección anidada. El contrato fundamentado limita el alcance, declara el
+supuesto de elegibilidad, resuelve el soporte de cada afirmación y reemplaza
+la redacción libre. La nueva prueba real `test:hermes-cli` exige tool calls
+contabilizadas; su revalidación en el host queda pendiente.
 
 ### 11. Mejora continua
 
@@ -125,13 +130,15 @@ fine-tuning. Su reconstrucción exacta forma parte de `verify:all`.
 
 ### 13. Pruebas
 
-`npm test` cubre motores, plugin, tareas, bloqueo, memoria, Claude Code,
+`npm test` cubre 87 pruebas de motores, herramienta y hooks del plugin, tareas, bloqueo, memoria, Claude Code,
 decisiones, agentes, mejora, dataset, materiales y auditoría. GitHub Actions
 ejecuta `npm run verify:all`.
 
 ### 14. Pruebas reales de host
 
-- `npm run test:hermes-cli`: aprobada, 3/3 motores.
+- `npm run test:hermes-cli`: la versión anterior fue aprobada con 3/3 motores;
+  la versión actual exige una tool call oficial y está pendiente de revalidar
+  en el host con Hermes.
 - `npm run test:claude-code-live`: aprobada, archivo verificado de forma independiente.
 - `npm run test:hermes-autonomy-live`: aprobada; Hermes originó y supervisó una tarea real de Claude Code.
 - `npm run verify:all-live`: aprobada de principio a fin.

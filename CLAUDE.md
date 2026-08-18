@@ -37,7 +37,10 @@ npm run test:claude-code-live
 npm run test:hermes-autonomy-live
 ```
 
-El script exige que `neurosymbolic-integration` esté descubierto y habilitado por Hermes. Ejecuta NetworkX, Z3 y PyDatalog mediante `hermes chat -q` y falla si el hook no inyecta evidencia.
+El script exige que `neurosymbolic-integration` esté descubierto y habilitado
+por Hermes. Ejecuta NetworkX, Z3 y PyDatalog mediante `hermes chat -q`, exige
+una llamada oficial a `neurosymbolic_reasoning` y comprueba que un mensaje
+ordinario conserve cero llamadas.
 
 ## Componentes operativos
 
@@ -46,7 +49,8 @@ El script exige que `neurosymbolic-integration` esté descubierto y habilitado p
 - `skilled/orchestration`: agentes, ejecución multi-etapa, puente Hermes e historial.
 - `skilled/reasoning/claude_code_executor.py`: adaptador opt-in de Claude Code.
 - `skilled/reasoning/neuro_symbolic_engine.py`: NetworkX, Z3 y PyDatalog.
-- `agents/hermes/plugins/neurosymbolic-integration`: hook `pre_llm_call`.
+- `agents/hermes/plugins/neurosymbolic-integration`: herramienta
+  `neurosymbolic_reasoning`, detector previo, auditoría y salida fundamentada.
 - `sharememory/hermes_memory/knowledge_broker.py`: memoria operativa.
 - `skilled/improvement`: mejora continua y construcción de evaluaciones.
 - `datasets/evaluation`: casos sintéticos versionados, sin datos de usuario.

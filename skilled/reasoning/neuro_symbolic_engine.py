@@ -813,6 +813,17 @@ class NeurosymbolicCoordinator:
                     Sum(terms),
                     "maximize_weighted_sum",
                 )
+            elif objective_type == "minimize_boolean":
+                variable_name = objective.get("variable")
+                variable = solver.variables.get(variable_name)
+                if variable is None:
+                    errors.append(f"Could not formalize objective: {objective}")
+                    continue
+                solver.add_objective(
+                    "minimize",
+                    If(variable, 1, 0),
+                    f"minimize_boolean({variable_name})",
+                )
             else:
                 errors.append(f"Unknown objective: {objective}")
         return errors

@@ -1,35 +1,54 @@
-# Arquitectura Neurosimbólica
+# Arquitectura neurosimbólica
 
-## Componentes principales
-1. NeurosymbolicCoordinator - Coordina los motores
-2. HermesSymbolIntegration - Expone interfaz Hermes
-3. GraphAnalyzer - Wrapper NetworkX (aislamiento de estado garantizado)
-4. ConstraintSolver - Wrapper Z3 (nuevo solver por ejecución)
-5. SymbolicEngine - Wrapper PyDatalog (nuevo motor por ejecución)
+## Flujo operativo
 
-## Diagrama de flujo
-task_description -> analyze_context_for_reasoning -> needs_symbolic_reasoning?
-                                                           |
-                                                          YES
-                                                           |
-                              engine = recommended_engine
-                                                           |
-                          +----------------------------------+--------------------------+
-                          |                          |                         |
-                    networkx_analysis    z3_analysis    pydatalog_analysis
-                          |                          |
-                          +--------------------------+--------------------------+
-                                              |
-                                     evidence_for_hermes
-                                              |
-                                  +-----------+-----------+
-                                  |                       |
-                       integrate_result          log_stats
+```text
+mensaje de usuario
+  → pre_llm_call: detección estructural, sin ejecutar motores
+  → tool call oficial: neurosymbolic_reasoning
+  → ProblemExtractor / SymbolicProblem
+  → NetworkX → PyDatalog → Z3/Optimize
+  → validación de motores y soportes
+  → contrato fundamentado
+  → Markdown determinista mediante transform_llm_output
+```
 
-## Aislamiento de estado (Requirement #2 reparado)
-- Cada ejecución crea nuevos GraphAnalyzer(), ConstraintSolver(), SymbolicEngine()
-- El metodo _run_networkx_reasoning() crea nx.DiGraph() local
-- No hay comparticion de estado entre llamadas
+Un turno simbólico que no llame la herramienta termina con una respuesta de
+fallo seguro. El plugin no vuelve a ejecutar silenciosamente los motores desde
+el hook y no altera el contador de sesión de forma artificial.
 
-## Verificacion
-Ejecutar test_neurosymbolic.py incluido en el proyecto raiz.
+## Componentes
+
+1. `schemas.py`: contrato que ve el modelo.
+2. `tools.py`: único handler que ejecuta el pipeline.
+3. `runtime.py`: correlación e idempotencia por `request_id` y turno.
+4. `ProblemExtractor`: formalización con procedencia y supuestos explícitos.
+5. `NeurosymbolicCoordinator`: selección o composición de motores.
+6. `grounded_result.py`: afirmaciones, soporte, alcance y Markdown canónico.
+
+## Composición
+
+En modo `combined`, NetworkX deriva alcance, PyDatalog deriva estados y Z3
+recibe las restricciones resultantes. El resultado global solo es exitoso si
+todos los motores requeridos terminan y ninguna afirmación contiene una
+referencia de soporte sin resolver.
+
+## Aislamiento y trazabilidad
+
+- Cada ejecución crea instancias nuevas de los motores.
+- El handler reutiliza el resultado si Hermes repite el mismo `request_id`.
+- Los logs son JSONL e incluyen `run_id`, estados y hash, sin copiar el prompt.
+- La sesión oficial de Hermes es la fuente primaria para contar tool calls.
+
+## Verificación
+
+```bash
+PYTHONPATH=.:./skilled python -m pytest -q \
+  tests/test_hermes_plugin_hook.py \
+  tests/test_composed_neurosymbolic_pipeline.py
+
+npm run test:hermes-cli
+```
+
+La segunda prueba requiere una instalación real de Hermes y un proveedor con
+tool calling funcional.

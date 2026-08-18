@@ -69,6 +69,7 @@ class SymbolicProblem:
     relation_metadata: List[Dict[str, Any]] = field(default_factory=list)
     variables: Dict[str, Any] = field(default_factory=dict)
     objectives: List[Dict[str, Any]] = field(default_factory=list)
+    assumptions: List[Dict[str, Any]] = field(default_factory=list)
     unknowns: List[Dict[str, Any]] = field(default_factory=list)
     queries: List[Any] = field(default_factory=list)
     provenance: List[Dict[str, Any]] = field(default_factory=list)
@@ -172,6 +173,7 @@ class SymbolicProblem:
             "relation_metadata": self.relation_metadata,
             "variables": self.variables,
             "objectives": self.objectives,
+            "assumptions": self.assumptions,
             "unknowns": self.unknowns,
             "queries": self.queries,
             "provenance": self.provenance,
@@ -312,6 +314,7 @@ class ProblemExtractor:
 
             problem.variables.update(component.variables)
             problem.objectives.extend(component.objectives)
+            problem.assumptions.extend(component.assumptions)
             problem.unknowns.extend(component.unknowns)
             problem.queries.extend(component.queries)
             problem.provenance.extend(component.provenance)
@@ -547,6 +550,7 @@ class ProblemExtractor:
 
         for key in (
             "objectives",
+            "assumptions",
             "unknowns",
             "queries",
             "provenance",
@@ -734,6 +738,20 @@ class ProblemExtractor:
             receive_variables.append(variable)
             problem.variables[variable] = {"type": "bool", "entity": unit}
 
+        if receive_variables:
+            problem.assumptions.append(
+                {
+                    "id": "listed_impediments_complete_for_scope",
+                    "description": (
+                        "Para optimizar el plan, se consideran candidatas las "
+                        "unidades con cajas listas que no tengan un impedimento "
+                        "derivado de los hechos y reglas proporcionados."
+                    ),
+                    "scope": list(cls._unique(units)),
+                    "source": "system_modeling_policy",
+                }
+            )
+
         if ready and capacity is not None:
             weights = {
                 f"receive_{cls._slug(unit)}": boxes
@@ -778,6 +796,19 @@ class ProblemExtractor:
             )
             problem.provenance.append(source)
 
+        if gain_match:
+            problem.objectives.append(
+                {
+                    "type": "minimize_boolean",
+                    "variable": "reorganize",
+                    "priority": 2,
+                    "description": (
+                        "No activar la reorganización si no es necesaria para "
+                        "cumplir el objetivo prioritario."
+                    ),
+                }
+            )
+
         if ready:
             problem.objectives.append(
                 {
@@ -786,7 +817,7 @@ class ProblemExtractor:
                         f"receive_{cls._slug(unit)}": boxes
                         for unit, boxes in ready.items()
                     },
-                    "priority": 2,
+                    "priority": 3,
                 }
             )
 

@@ -25,7 +25,7 @@ aplicación Node que requiera compilación.
 | Orquestación por roles | `skilled/orchestration/` | registro de agentes, dependencias e historial |
 | Memoria | `sharememory/hermes_memory/` | persistencia, búsqueda y exportación validada |
 | Mejora y evaluación | `skilled/improvement/`, `datasets/evaluation/` | dataset reproducible y evaluación de corpus |
-| Plugin Hermes | `agents/hermes/plugins/neurosymbolic-integration/` | hooks unitarios y prueba CLI real |
+| Plugin Hermes | `agents/hermes/plugins/neurosymbolic-integration/` | herramienta oficial, hooks de control y pruebas unitarias; revalidación CLI real pendiente |
 
 La suite reproducible se ejecuta con `npm run verify:all`. Las integraciones
 que requieren binarios, credenciales o presupuesto del host se ejecutan con
@@ -38,17 +38,21 @@ que requieren binarios, credenciales o presupuesto del host se ejecutan con
    restricciones, variables, objetivos, incógnitas, consultas y procedencia.
 3. Un modo simple ejecuta un motor aislado. `combined` encadena NetworkX →
    PyDatalog → Z3/Optimize y valida que todos los motores requeridos terminen.
-4. El plugin inyecta resultados y transferencias entre motores antes de la llamada al modelo.
-5. Solo una orden con prefijo `/orchestrate` y `HERMES_AUTONOMY_ENABLED=1` entra en `HermesOrchestrationBridge`.
-6. `AutonomousOrchestrator` descompone y supervisa; `TaskRouter` persiste el estado y mantiene bloqueos accionables.
-7. `ClaudeCodeExecutor` puede ejecutar el rol `builder` cuando se registra de forma explícita y el host está autenticado.
-8. Solo resultados validados se incorporan a memoria o al ciclo de mejora.
+4. `pre_llm_call` detecta estructura simbólica y requiere una llamada oficial a
+   `neurosymbolic_reasoning`; el hook no ejecuta los motores.
+5. La herramienta ejecuta el pipeline una sola vez, construye afirmaciones con
+   soporte y produce Markdown determinista. `transform_llm_output` sustituye la
+   redacción libre o falla de forma segura si faltó la tool call.
+6. Solo una orden con prefijo `/orchestrate` y `HERMES_AUTONOMY_ENABLED=1` entra en `HermesOrchestrationBridge`.
+7. `AutonomousOrchestrator` descompone y supervisa; `TaskRouter` persiste el estado y mantiene bloqueos accionables.
+8. `ClaudeCodeExecutor` puede ejecutar el rol `builder` cuando se registra de forma explícita y el host está autenticado.
+9. Solo resultados validados se incorporan a memoria o al ciclo de mejora.
 
 ## Integraciones externas
 
 | Integración | Estado | Condición |
 |---|---|---|
-| Hermes CLI | Verificada extremo a extremo | plugin descubierto y habilitado en el host |
+| Hermes CLI | Revalidación pendiente tras migración a tool oficial | plugin descubierto, habilitado y proveedor con tool calling |
 | Claude Code | Verificada extremo a extremo | binario, autenticación, permisos y presupuesto |
 | Codebase Memory MCP | Parcial | hay comandos y guías, pero el estado del índice y hook depende del host |
 | Kùzu/LlamaIndex | Parcial | código de ingestión presente; fuera de la suite central |

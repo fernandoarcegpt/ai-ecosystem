@@ -1,204 +1,206 @@
-"""Neurosymbolic Integration Plugin for Hermes.
+"""Plugin Hermes para razonamiento neurosimbólico auditable.
 
-Integra automáticamente el núcleo neurosimbólico con Hermes mediante
-el hook pre_llm_call.
+El hook ``pre_llm_call`` solo detecta y solicita la herramienta. La ejecución
+real ocurre exclusivamente en ``neurosymbolic_reasoning``, por lo que Hermes
+puede persistirla como tool call. ``transform_llm_output`` entrega el Markdown
+determinista del motor y evita que el modelo agregue conclusiones no apoyadas.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
+
+from .runtime import NeurosymbolicRuntime
+from .schemas import NEUROSYMBOLIC_REASONING
+from .tools import build_neurosymbolic_handler
 
 logger = logging.getLogger(__name__)
 
 _registered = False
 
 
-def _write_proof(message: str) -> None:
-    """Append machine-readable evidence when a proof log is configured."""
+def _write_proof(event: str, **fields: Any) -> None:
+    """Añade un evento JSONL acotado; el historial Hermes sigue siendo fuente."""
     selected = os.getenv(
         "HERMES_NEUROSYMBOLIC_PROOF_LOG",
         "/tmp/neuro_hook_proof.log",
     )
     proof_path = Path(selected).expanduser()
     proof_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": 1,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "event": event,
+        **fields,
+    }
     with proof_path.open("a", encoding="utf-8") as handle:
-        handle.write(message.rstrip("\n") + "\n")
+        handle.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+
+
+def _required_tool_context(request_id: str) -> str:
+    return (
+        "REQUIERE_HERRAMIENTA_NEUROSIMBOLICA\n"
+        "Antes de responder debes llamar exactamente una vez a la herramienta "
+        "`neurosymbolic_reasoning`. Copia el mensaje completo del usuario en "
+        "`query` y usa este `request_id` sin modificarlo: "
+        f"`{request_id}`. No calcules el resultado por tu cuenta. Después de "
+        "la llamada no agregues plazos, responsables, autorizaciones, urgencia "
+        "ni recomendaciones que no aparezcan en `rendered_markdown`."
+    )
 
 
 def register(ctx):
-    """Registrar el hook neurosimbólico pre_llm_call en Hermes."""
+    """Registra una herramienta oficial y los hooks de control del turno."""
     global _registered
-
-    logger.warning("[neurosymbolic-plugin] register(ctx) invoked")
-    logger.warning("  ctx type: %s", type(ctx))
-    logger.warning(
-        "  ctx.manifest.name: %s",
-        getattr(getattr(ctx, "manifest", None), "name", None),
-    )
-
     if _registered:
-        logger.warning(
-            "[neurosymbolic-plugin] Already registered, returning early"
-        )
         return
 
-    try:
-        from .hermes_integration import get_symbolic_integration
+    runtime = NeurosymbolicRuntime()
 
-        def pre_llm_call_hook(**kwargs) -> Optional[Dict[str, str]]:
-            """Ejecutar razonamiento simbólico antes de la llamada al LLM."""
-            try:
-                logger.warning(
-                    "[neurosymbolic-plugin] pre_llm_call_hook invoked"
-                )
-                _write_proof("HOOK_INVOKED")
-                logger.warning(
-                    "  kwargs keys: %s",
-                    list(kwargs.keys()),
-                )
+    def pre_llm_call_hook(**kwargs) -> Optional[Dict[str, str]]:
+        user_message = kwargs.get("user_message") or ""
+        if not isinstance(user_message, str) or not user_message.strip():
+            runtime.clear_turn(**kwargs)
+            return None
 
-                user_message = kwargs.get("user_message") or ""
-                platform = kwargs.get("platform", "cli") or "cli"
-
-                if not isinstance(user_message, str) or not user_message.strip():
-                    logger.warning(
-                        "[neurosymbolic-plugin] Empty user message, returning None"
+        # La orquestación autónoma existente conserva su opt-in explícito y no
+        # se presenta como razonamiento neurosimbólico.
+        if user_message.strip().lower().startswith("/orchestrate "):
+            runtime.clear_turn(**kwargs)
+            if os.getenv("HERMES_AUTONOMY_ENABLED") != "1":
+                return {
+                    "context": (
+                        "Ejecución autónoma no habilitada. Configure "
+                        "HERMES_AUTONOMY_ENABLED=1 para usar /orchestrate."
                     )
-                    return None
+                }
+            from orchestration.hermes_bridge import run_from_hermes
 
-                # Durante esta fase de validación se mantiene CLI.
-                if platform != "cli":
-                    logger.warning(
-                        "[neurosymbolic-plugin] Not CLI platform (%s), returning None",
-                        platform,
-                    )
-                    return None
-
-                # Autonomous execution is deliberately explicit and opt-in.
-                # Ordinary prompts still follow the read-only reasoning path.
-                if user_message.strip().lower().startswith("/orchestrate "):
-                    if os.getenv("HERMES_AUTONOMY_ENABLED") != "1":
-                        return {
-                            "context": (
-                                "Ejecución autónoma no habilitada. Configure "
-                                "HERMES_AUTONOMY_ENABLED=1 para usar /orchestrate."
-                            )
-                        }
-                    from orchestration.hermes_bridge import run_from_hermes
-
-                    orchestration = run_from_hermes(user_message)
-                    distribution = orchestration["task_report"][
-                        "status_distribution"
-                    ]
-                    completed = int(distribution.get("completed", 0))
-                    blocked = int(distribution.get("blocked", 0))
-                    failed = int(distribution.get("failed", 0))
-                    _write_proof(
-                        "AUTONOMY_COMPLETED="
-                        f"{completed} BLOCKED={blocked} FAILED={failed}"
-                    )
-                    return {
-                        "context": (
-                            "Resultado autónomo verificable: "
-                            f"completed={completed}, blocked={blocked}, "
-                            f"failed={failed}."
-                        )
-                    }
-
-                integration = get_symbolic_integration()
-
-                # Delegar detección, formalización, selección de motor y ejecución
-                # al coordinador central. No filtrar aquí por keywords.
-                result = integration.intercept_task(
-                    user_message,
-                    {},
+            orchestration = run_from_hermes(user_message)
+            distribution = orchestration["task_report"]["status_distribution"]
+            completed = int(distribution.get("completed", 0))
+            blocked = int(distribution.get("blocked", 0))
+            failed = int(distribution.get("failed", 0))
+            _write_proof(
+                "autonomy_completed",
+                completed=completed,
+                blocked=blocked,
+                failed=failed,
+            )
+            return {
+                "context": (
+                    "Resultado autónomo verificable: "
+                    f"completed={completed}, blocked={blocked}, failed={failed}."
                 )
+            }
 
-                if not result:
-                    logger.warning(
-                        "[neurosymbolic-plugin] No symbolic reasoning required"
-                    )
-                    return None
+        try:
+            from .hermes_integration import get_symbolic_integration
 
-                status = result.get("status")
-                engine = result.get("engine_used")
-
-                logger.warning(
-                    "[neurosymbolic-plugin] reasoning executed: "
-                    "status=%s engine=%s",
-                    status,
-                    engine,
-                )
-                _write_proof(f"ENGINE={engine} STATUS={status}")
-
-                if engine == "combined":
-                    combined_results = result.get("results", {}) or {}
-                    engine_keys = {
-                        "NETWORKX": "networkx_analysis",
-                        "PYDATALOG": "pydatalog_analysis",
-                        "Z3": "z3_analysis",
-                    }
-                    for label, key in engine_keys.items():
-                        engine_result = combined_results.get(key) or {}
-                        if key in combined_results and engine_result:
-                            _write_proof(
-                                f"{label}={engine_result.get('status', 'missing')}"
-                            )
-
-                if status != "success":
-                    logger.warning(
-                        "[neurosymbolic-plugin] Symbolic result not successful; "
-                        "context will not be injected"
-                    )
-                    return None
-
-                evidence_text = (
-                    integration.integrate_result_with_hermes_response(result)
-                )
-
-                if not evidence_text:
-                    logger.warning(
-                        "[neurosymbolic-plugin] Empty evidence text, returning None"
-                    )
-                    return None
-
-                logger.warning(
-                    "[neurosymbolic-plugin] injecting symbolic context engine=%s",
-                    engine,
-                )
-
-                _write_proof("CONTEXT_INJECTED")
-
-                return {"context": str(evidence_text)}
-
-            except Exception as exc:
-                logger.warning(
-                    "[neurosymbolic-plugin] pre_llm_call hook failed: %s",
-                    exc,
-                    exc_info=True,
+            integration = get_symbolic_integration()
+            if not integration.should_use_symbolic_reasoning(user_message, {}):
+                runtime.clear_turn(**kwargs)
+                _write_proof(
+                    "detector_skipped",
+                    session_id=kwargs.get("session_id"),
+                    turn_id=kwargs.get("turn_id"),
                 )
                 return None
 
-        logger.warning(
-            "[neurosymbolic-plugin] Registering pre_llm_call hook..."
-        )
-        ctx.register_hook("pre_llm_call", pre_llm_call_hook)
-        logger.warning(
-            "[neurosymbolic-plugin] pre_llm_call hook registered successfully"
+            request_id = runtime.begin(user_message, **kwargs)
+            _write_proof(
+                "tool_required",
+                request_id=request_id,
+                session_id=kwargs.get("session_id"),
+                turn_id=kwargs.get("turn_id"),
+                platform=kwargs.get("platform"),
+            )
+            return {"context": _required_tool_context(request_id)}
+        except Exception as exc:
+            request_id = runtime.begin(user_message, **kwargs)
+            logger.warning(
+                "[neurosymbolic-plugin] detector failed: %s",
+                exc,
+                exc_info=True,
+            )
+            _write_proof(
+                "detector_error",
+                request_id=request_id,
+                error=type(exc).__name__,
+            )
+            return {"context": _required_tool_context(request_id)}
+
+    tool_handler = build_neurosymbolic_handler(
+        runtime,
+        proof_writer=_write_proof,
+    )
+
+    def post_tool_call_hook(
+        tool_name: str = "",
+        args: Optional[Dict[str, Any]] = None,
+        result: str = "",
+        task_id: str = "",
+        duration_ms: int = 0,
+        **kwargs,
+    ) -> None:
+        if tool_name != "neurosymbolic_reasoning":
+            return
+        _write_proof(
+            "official_tool_observed",
+            tool=tool_name,
+            request_id=(args or {}).get("request_id"),
+            task_id=task_id,
+            session_id=kwargs.get("session_id"),
+            turn_id=kwargs.get("turn_id"),
+            duration_ms=duration_ms,
         )
 
-        _registered = True
-        logger.info(
-            "Neurosymbolic integration plugin registered successfully"
+    def transform_llm_output_hook(
+        response_text: str = "",
+        session_id: str = "",
+        **kwargs,
+    ) -> Optional[str]:
+        record = runtime.consume_turn(session_id=session_id, **kwargs)
+        if record is None:
+            return None
+        contract = record.get("contract")
+        if isinstance(contract, dict) and contract.get("rendered_markdown"):
+            _write_proof(
+                "output_replaced",
+                run_id=contract.get("run_id"),
+                status=contract.get("status"),
+            )
+            return str(contract["rendered_markdown"])
+
+        _write_proof(
+            "required_tool_missing",
+            session_id=session_id,
+        )
+        return (
+            "## Razonamiento neurosimbólico no ejecutado\n\n"
+            "El turno requería la herramienta `neurosymbolic_reasoning`, pero "
+            "Hermes no registró su ejecución. Para evitar una conclusión no "
+            "verificada, se descartó la respuesta generada por el modelo."
         )
 
-    except Exception as exc:
-        logger.error(
-            "[neurosymbolic-plugin] Failed to register plugin: %s",
-            exc,
-            exc_info=True,
-        )
-        raise
+    ctx.register_tool(
+        name="neurosymbolic_reasoning",
+        toolset="neurosymbolic",
+        schema=NEUROSYMBOLIC_REASONING,
+        handler=tool_handler,
+        description=NEUROSYMBOLIC_REASONING["description"],
+        emoji="🧠",
+    )
+    ctx.register_hook("pre_llm_call", pre_llm_call_hook)
+    ctx.register_hook("post_tool_call", post_tool_call_hook)
+    ctx.register_hook("transform_llm_output", transform_llm_output_hook)
+
+    _registered = True
+    logger.info(
+        "Neurosymbolic tool and grounding hooks registered successfully"
+    )

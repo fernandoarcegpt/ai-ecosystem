@@ -21,8 +21,9 @@ fuentes vigentes de las referencias parciales, históricas y reemplazadas.
   verificación y bloqueos humanos accionables.
 - Registro de resultados verificados en `KnowledgeBroker` y recuperación
   después de reiniciar el proceso.
-- Integración de razonamiento en el flujo CLI de Hermes mediante el plugin
-  `agents/hermes/plugins/neurosymbolic-integration`.
+- Integración mediante la herramienta oficial `neurosymbolic_reasoning`, con
+  detección previa, una sola ejecución por turno, salida fundamentada y guardia
+  contra respuestas libres cuando falta la tool call.
 - Orquestación explícita desde Hermes mediante `/orchestrate`, con agentes por
   rol, dependencias, verificación, memoria e historial de ejecución.
 - Mejora continua conectada automáticamente a los informes de tareas.
@@ -88,7 +89,9 @@ hermes plugins enable neurosymbolic-integration
 npm run test:hermes-cli
 ```
 
-Si el destino ya existe, revísalo y no lo sobrescribas. La prueba ejecuta `hermes chat -q` tres veces y exige evidencia de NetworkX, Z3 y PyDatalog en el hook `pre_llm_call`.
+Si el destino ya existe, revísalo y no lo sobrescribas. La prueba ejecuta
+`hermes chat -q`, exige que cada problema simbólico quede contabilizado como
+una llamada oficial y comprueba que un saludo mantenga `0 tool calls`.
 
 ## Componentes principales
 

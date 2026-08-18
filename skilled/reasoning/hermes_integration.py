@@ -14,6 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from .grounded_result import build_grounded_contract
+
 _REPOSITORY_ROOT = Path(
     os.getenv("AI_ECOSYSTEM_ROOT", Path(__file__).resolve().parents[2])
 ).expanduser().resolve()
@@ -139,6 +141,17 @@ class HermesSymbolIntegration:
             engine_preference="auto",
         )
         return result.to_dict()
+
+    def run_grounded_task(
+        self,
+        task_description: str,
+        context: Optional[Dict[str, Any]] = None,
+        *,
+        run_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Ejecutar el pipeline y devolver solo el contrato publicable."""
+        result = self.intercept_task(task_description, context or {})
+        return build_grounded_contract(result, run_id=run_id)
 
     def provide_temporal_context(
         self,
