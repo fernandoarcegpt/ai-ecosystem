@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 npm test
+PYTHONPATH=.:./skilled python3 scripts/validate_documentation_index.py
 PYTHONPATH=.:./skilled python3 scripts/audit_operational_assets.py
 
 generated="$(mktemp -d "${TMPDIR:-/tmp}/ai-ecosystem-dataset.XXXXXX")"

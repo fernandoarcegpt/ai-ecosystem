@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any, Dict
@@ -16,6 +17,10 @@ def audit() -> Dict[str, Any]:
     required = [
         "CLAUDE.md",
         "README.md",
+        "ARCHITECTURE.md",
+        "docs/DOCUMENTATION_INDEX.md",
+        "docs/PATCH_CATALOG.md",
+        "scripts/validate_documentation_index.py",
         "agents/hermes/plugins/neurosymbolic-integration/plugin.yaml",
         "agents/hermes/plugins/neurosymbolic-integration/__init__.py",
         "knowledge-service/run_ingest.sh",
@@ -49,11 +54,12 @@ def audit() -> Dict[str, Any]:
         ROOT / "agents/hermes/plugins/neurosymbolic-integration/hermes_integration.py",
         ROOT / "knowledge-service/run_ingest.sh",
         ROOT / "sharememory/hermes_memory/knowledge_broker.py",
+        ROOT / "src/ingest.py",
     ]
     absolute_home_references = [
         str(path.relative_to(ROOT))
         for path in critical_runtime
-        if "/home/fernando" in path.read_text(encoding="utf-8")
+        if re.search(r"/home/[^/\s]+/", path.read_text(encoding="utf-8"))
     ]
     manifest_path = ROOT / "datasets/evaluation/manifest.json"
     dataset_ready = False
