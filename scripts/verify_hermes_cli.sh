@@ -23,10 +23,54 @@ if [[ "$plugin_list" != *"neurosymbolic-integration"* ]]; then
 fi
 
 plugin_path="agents/hermes/plugins/neurosymbolic-integration"
-if ! doctor_output="$(hermes plugins doctor "$plugin_path" --ci 2>&1)"; then
-  echo "ERROR: Hermes Plugin Doctor rechazó el contrato del plugin" >&2
-  printf '%s\n' "$doctor_output" >&2
+required_plugin_files=(
+  "plugin.yaml"
+  "__init__.py"
+  "schemas.py"
+  "tools.py"
+  "runtime.py"
+)
+for required_file in "${required_plugin_files[@]}"; do
+  if [[ ! -f "$plugin_path/$required_file" ]]; then
+    echo "ERROR: falta $plugin_path/$required_file" >&2
+    exit 4
+  fi
+done
+
+for manifest_key in name version provides_tools provides_hooks; do
+  if ! grep -Eq "^${manifest_key}:" "$plugin_path/plugin.yaml"; then
+    echo "ERROR: plugin.yaml no declara '$manifest_key'" >&2
+    exit 4
+  fi
+done
+
+if ! python3 - "$plugin_path" <<'PY'
+from pathlib import Path
+import sys
+
+plugin_path = Path(sys.argv[1])
+for filename in ("__init__.py", "schemas.py", "tools.py", "runtime.py"):
+    path = plugin_path / filename
+    compile(path.read_bytes(), str(path), "exec")
+PY
+then
+  echo "ERROR: el código Python del plugin no compila" >&2
   exit 4
+fi
+
+# `plugins doctor` no existe en Hermes Agent v0.20.0. Algunas versiones
+# posteriores pueden incorporarlo; cuando esté disponible se ejecuta como
+# comprobación adicional, sin romper la compatibilidad con la CLI instalada.
+plugins_help="$(hermes plugins -h 2>&1 || true)"
+if grep -Eq '(^|[,{[:space:]])doctor([,}[:space:]]|$)' <<<"$plugins_help"; then
+  if ! doctor_output="$(hermes plugins doctor "$plugin_path" --ci 2>&1)"; then
+    echo "ERROR: Hermes Plugin Doctor rechazó el contrato del plugin" >&2
+    printf '%s\n' "$doctor_output" >&2
+    exit 4
+  fi
+  echo "PASS: contrato validado por Hermes Plugin Doctor"
+else
+  echo "PASS: contrato estático válido (Hermes no ofrece 'plugins doctor')"
 fi
 
 proof_log="$(mktemp "${TMPDIR:-/tmp}/hermes-neuro-proof.XXXXXX")"
