@@ -4,11 +4,13 @@ Fecha de corte: 2026-08-17.
 
 ## Resultado ejecutivo
 
-El núcleo reproducible integra razonamiento neurosimbólico, tareas persistentes,
+El núcleo reproducible pasó **75 pruebas** e integra razonamiento neurosimbólico, tareas persistentes,
 agentes por rol, ejecución mediante Claude Code, memoria versionable, mejora
 continua, dataset y evaluación de materiales extensos. Las pruebas reales ya
 aportadas en el host verificaron Hermes CLI con NetworkX/Z3/PyDatalog y Claude
-Code mediante `TaskRouter`.
+Code mediante `TaskRouter`. La ejecución conjunta `npm run verify:all-live`
+también terminó correctamente, incluida la ruta Hermes → orquestador → Claude
+Code con verificación independiente.
 
 La seguridad permanece fuera de alcance por indicación del propietario. Los
 componentes externos que no existen en el árbol se registran como `not_present`;
@@ -27,8 +29,8 @@ no se inventa una evaluación sin URL o paquete inequívoco.
 | Reanudación manual y automática | Verificado |
 | Persistencia de decisiones humanas | Verificado |
 | Captura y recuperación de resultados en memoria | Verificado |
-| `npm test` y GitHub Actions | Verificación reproducible incluida en CI |
-| Autonomía real dentro de Hermes | Implementada con `/orchestrate`; prueba host unificada disponible |
+| `npm test` y GitHub Actions | Verificado: 75 pruebas aprobadas |
+| Autonomía real dentro de Hermes | Verificada extremo a extremo con `/orchestrate` y Claude Code real |
 | Hermes CLI con los tres motores | Verificado extremo a extremo, 3/3 |
 | Informe de bloqueo completo | Verificado: evidencia, alternativas, riesgos y siguiente acción |
 | Arquitectura de agentes y miniagentes | Implementada mediante registro de roles, ejecutores y plan multi-etapa |
@@ -123,8 +125,14 @@ ejecuta `npm run verify:all`.
 
 - `npm run test:hermes-cli`: aprobada, 3/3 motores.
 - `npm run test:claude-code-live`: aprobada, archivo verificado de forma independiente.
-- `npm run test:hermes-autonomy-live`: prueba compuesta Hermes → router → Claude Code.
-- `npm run verify:all-live`: ejecuta todas las anteriores en una sola orden.
+- `npm run test:hermes-autonomy-live`: aprobada; Hermes originó y supervisó una tarea real de Claude Code.
+- `npm run verify:all-live`: aprobada de principio a fin.
+
+Los verificadores permitieron hasta dos intentos. En la ejecución final,
+Claude Code completó su tarea en el segundo intento después de una denegación
+del comando auxiliar `xxd`; Hermes también completó la prueba autónoma en el
+segundo intento. En ambos casos el éxito dependió del archivo comprobado por
+el proceso verificador, no del texto declarado por el modelo.
 
 ### 15. Riesgos y límites
 
