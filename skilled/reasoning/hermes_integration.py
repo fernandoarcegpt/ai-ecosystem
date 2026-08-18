@@ -207,6 +207,9 @@ class HermesSymbolIntegration:
             f"Modo formalizado: {formalized.get('mode', 'unknown')}",
         ]
 
+        if engine == "combined":
+            lines.append("MODO: combined")
+
         if formalized.get("relations"):
             lines.append(
                 f"Relaciones formalizadas: {formalized['relations']}"
@@ -219,6 +222,70 @@ class HermesSymbolIntegration:
             lines.append(f"Ítems: {formalized['items']}")
         if formalized.get("people"):
             lines.append(f"Personas: {formalized['people']}")
+        if formalized.get("facts"):
+            lines.append(f"Hechos formalizados: {formalized['facts']}")
+        if formalized.get("rules"):
+            lines.append(f"Reglas formalizadas: {formalized['rules']}")
+        if formalized.get("objectives"):
+            lines.append(f"Objetivos: {formalized['objectives']}")
+        if formalized.get("unknowns"):
+            lines.append(f"HECHOS NO DETERMINADOS: {formalized['unknowns']}")
+
+        if engine == "combined":
+            required = results.get("required_engines", [])
+            sections = {
+                "networkx": results.get("networkx_analysis") or {},
+                "pydatalog": results.get("pydatalog_analysis") or {},
+                "z3": results.get("z3_analysis") or {},
+            }
+            lines.append("MOTORES REQUERIDOS:")
+            for name in required:
+                lines.append(
+                    f"- {name}: {sections.get(name, {}).get('status', 'missing')}"
+                )
+
+            nx_result = sections["networkx"]
+            if nx_result:
+                lines.extend(
+                    [
+                        "NETWORKX:",
+                        f"- acíclico: {nx_result.get('is_acyclic')}",
+                        f"- orden: {nx_result.get('topological_order')}",
+                        f"- alcance: {nx_result.get('transitive_relations', [])}",
+                    ]
+                )
+
+            pd_result = sections["pydatalog"]
+            if pd_result:
+                lines.extend(
+                    [
+                        "PYDATALOG:",
+                        f"- consultas: {pd_result.get('queries_executed', [])}",
+                        f"- hechos derivados: {pd_result.get('derived_facts', [])}",
+                    ]
+                )
+
+            z3_result = sections["z3"]
+            if z3_result:
+                lines.extend(
+                    [
+                        "Z3:",
+                        f"- estado: {z3_result.get('solution_status')}",
+                        f"- Optimize: {z3_result.get('optimizer_used', False)}",
+                        f"- solución: {z3_result.get('solution_values', {})}",
+                        f"- unsat core: {z3_result.get('unsat_core', [])}",
+                    ]
+                )
+
+            if results.get("knowledge_transfers"):
+                lines.append(
+                    "TRANSFERENCIA ENTRE MOTORES: "
+                    f"{results.get('knowledge_transfers')}"
+                )
+            if results.get("validation"):
+                lines.append(
+                    f"VERIFICACIÓN: {results.get('validation')}"
+                )
 
         # NetworkX
         if results.get("is_acyclic") is not None:
@@ -263,6 +330,16 @@ class HermesSymbolIntegration:
             lines.append(
                 f"Conclusión estructurada: {evidence.get('conclusion')}"
             )
+
+        indicators = formalized.get("structural_indicators", {}) or {}
+        lines.append(
+            "HUMAN_REVIEW: "
+            + (
+                str(indicators.get("review_reason", "required"))
+                if indicators.get("human_review")
+                else "not_required"
+            )
+        )
 
         lines.extend(
             [

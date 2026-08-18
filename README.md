@@ -10,9 +10,12 @@ fuentes vigentes de las referencias parciales, históricas y reemplazadas.
 ## Qué funciona
 
 - Detección y análisis de grafos dirigidos con NetworkX.
-- Restricciones aritméticas y de asignación con Z3, incluyendo resultados
-  satisfacibles e insatisfacibles.
-- Inferencia familiar directa y transitiva con PyDatalog.
+- Restricciones aritméticas, booleanas, condicionales y de capacidad con Z3,
+  incluyendo `Optimize` y núcleos insatisfacibles trazables.
+- Inferencia PyDatalog mediante consultas declaradas, sin consulta
+  `ancestor(X, Y)` fijada en el coordinador.
+- Composición real NetworkX → PyDatalog → Z3, con transferencia y validación
+  explícitas entre motores.
 - Selección automática del motor a partir de un problema formalizado.
 - Enrutamiento de tareas con dependencias, persistencia, reanudación,
   verificación y bloqueos humanos accionables.
@@ -54,6 +57,7 @@ Ese comando ejecuta la suite de aceptación usada por CI. Comprueba:
 - ciclos y órdenes topológicos reales;
 - SAT/UNSAT y modelos aritméticos reales;
 - inferencia lógica transitiva;
+- composición E2E del Plan de Transferencias Documentales 2027;
 - aislamiento entre ejecuciones;
 - activación y no activación del razonamiento;
 - ejecución de tareas, bloqueos, reanudación y persistencia;

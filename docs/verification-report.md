@@ -4,7 +4,7 @@ Fecha de corte: 2026-08-17.
 
 ## Resultado ejecutivo
 
-El núcleo reproducible pasó **75 pruebas** e integra razonamiento neurosimbólico, tareas persistentes,
+El núcleo reproducible pasó **81 pruebas** e integra razonamiento neurosimbólico, tareas persistentes,
 agentes por rol, ejecución mediante Claude Code, memoria versionable, mejora
 continua, dataset y evaluación de materiales extensos. Las pruebas reales ya
 aportadas en el host verificaron Hermes CLI con NetworkX/Z3/PyDatalog y Claude
@@ -21,6 +21,8 @@ no se inventa una evaluación sin URL o paquete inequívoco.
 | Parte | Estado y evidencia |
 |---|---|
 | NetworkX, PyDatalog y Z3 | Verificado por suite y Hermes CLI real |
+| Composición NetworkX → PyDatalog → Z3/Optimize | Verificada con transferencia explícita de hechos y restricciones |
+| Plan de Transferencias Documentales 2027 | Regresión E2E permanente; extracción, tres motores e inyección Hermes |
 | Ciclos, contradicciones, SAT/UNSAT e inferencia transitiva | Verificado |
 | Activación y no activación del razonador | Verificado |
 | Persistencia y dependencias de tareas | Verificado |
@@ -29,7 +31,7 @@ no se inventa una evaluación sin URL o paquete inequívoco.
 | Reanudación manual y automática | Verificado |
 | Persistencia de decisiones humanas | Verificado |
 | Captura y recuperación de resultados en memoria | Verificado |
-| `npm test` y GitHub Actions | Verificado: 75 pruebas aprobadas |
+| `npm test` y GitHub Actions | Verificado localmente: 81 pruebas aprobadas; CI se valida en el PR |
 | Autonomía real dentro de Hermes | Verificada extremo a extremo con `/orchestrate` y Claude Code real |
 | Hermes CLI con los tres motores | Verificado extremo a extremo, 3/3 |
 | Informe de bloqueo completo | Verificado: evidencia, alternativas, riesgos y siguiente acción |
@@ -100,8 +102,14 @@ ejecución permanece separada del snapshot versionable validado.
 
 ### 10. Capacidad neurosimbólica
 
-NetworkX, Z3 y PyDatalog se seleccionan y ejecutan automáticamente. La prueba
-real `test:hermes-cli` verificó ejecución e inyección de los tres motores.
+NetworkX, Z3 y PyDatalog se seleccionan y ejecutan automáticamente. En modo
+`combined`, NetworkX aporta relaciones alcanzables a PyDatalog; sus hechos
+derivados se convierten en restricciones para Z3/Optimize y la coordinación
+solo se declara exitosa si pasan todos los motores requeridos. La regresión
+del Plan de Transferencias 2027 verifica `blocked(RRHH)`,
+`requires_correction(Contabilidad)`, capacidad, objetivo institucional e
+inyección anidada. La prueba real previa `test:hermes-cli` verificó ejecución
+e inyección individual de los tres motores.
 
 ### 11. Mejora continua
 

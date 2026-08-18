@@ -30,46 +30,28 @@ triggers:
 > Before changing the plugin, paths, or commands, consult the Hermes and
 > reasoning section of `docs/DOCUMENTATION_INDEX.md` and apply its update criteria.
 
-This skill provides automatic neuro-symbolic reasoning integration with the Hermes chat pipeline. It intercepts user queries and routes them to appropriate symbolic engines (Z3, NetworkX, PyDatalog) based on semantic analysis.
+This skill provides automatic neuro-symbolic reasoning integration with the
+Hermes chat pipeline. `ProblemExtractor` is the canonical formalizer. Simple
+problems use one engine; `combined` problems transfer knowledge through
+NetworkX → PyDatalog → Z3/Optimize before injecting validated evidence.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Hermes Chat Pipeline                     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              semantic_router.classify_task_structure        │
-│                                                             │
-│  Analyzes query strings → mode + engine + confidence        │
-└─────────────────────────────────────────────────────────────┘
-                              │
-           ┌──────────────────┼──────────────────┐
-           ▼                  ▼                  ▼
-    ┌──────────┐      ┌──────────┐      ┌──────────┐
-    │   LLM    │      │  Z3/SMT  │      │NetworkX  │
-    │(llm_only)│      │(constraints│      │  (graph) │
-    │          │      │ / rules) │      │          │
-    └──────────┘      └──────────┘      └──────────┘
-           │                  │                  │
-           └──────────────────┼──────────────────┘
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Result Integration + Final Response          │
-└─────────────────────────────────────────────────────────────┘
-```
+`pre_llm_call → ProblemExtractor → SymbolicProblem → coordinator → evidence`
+
+For composed problems the coordinator runs:
+
+`NetworkX → graph facts → PyDatalog → derived constraints → Z3/Optimize → validation`
 
 ## Modes
 
 | Mode | Engine | Description | Tests |
 |------|--------|-------------|-------|
-| `llm_only` | none | Simple queries, no symbolic reasoning | test_a.py |
-| `rules` | z3 | Logical rule validation, permission checks | test_b.py |
-| `constraints` | z3 | Assignment, budget, resource allocation | test_c.py |
-| `graph` | networkx | Dependency cycles, path analysis | test_d.py |
-| `human_review` | none | Missing critical information | test_e.py |
+| `none` | none | No formalizable symbolic structure | acceptance suite |
+| `logic` | PyDatalog | Facts, rules and explicit/inferred queries | acceptance suite |
+| `constraints` | Z3/Optimize | Assignment, capacity and objectives | acceptance suite |
+| `graphs` | NetworkX | Cycles, order and transitive reachability | acceptance suite |
+| `combined` | NetworkX → PyDatalog → Z3 | Composed, validated reasoning | transfer-plan E2E |
 
 ## Installation
 

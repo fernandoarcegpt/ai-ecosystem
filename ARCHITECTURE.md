@@ -17,10 +17,10 @@ aplicación Node que requiera compilación.
 | Área | Implementación | Evidencia reproducible |
 |---|---|---|
 | Formalización y selección | `skilled/reasoning/symbolic_problem_schema.py`, `semantic_router.py`, `operational_decision.py` | `npm test` |
-| Grafos | `networkx_wrapper.py` | ciclos, orden topológico y dependencias |
-| Restricciones | `z3_solver_integration.py` | SAT, UNSAT y modelos |
-| Reglas | `pydatalog_integration.py` | inferencia directa y transitiva |
-| Coordinación simbólica | `neuro_symbolic_engine.py`, `hermes_integration.py` | selección e aislamiento de motores |
+| Grafos | `networkx_wrapper.py` | ciclos, orden, alcance, ancestros/descendientes y cuellos de dependencia |
+| Restricciones | `z3_solver_integration.py` | SAT/UNSAT, `Optimize`, objetivos jerárquicos y `unsat_core` trazable |
+| Reglas | `pydatalog_integration.py` | hechos, reglas y consultas declaradas por `SymbolicProblem` |
+| Coordinación simbólica | `neuro_symbolic_engine.py`, `hermes_integration.py` | selección aislada o composición NetworkX → PyDatalog → Z3 |
 | Tareas persistentes | `task_router.py` | dependencias, bloqueo, reanudación y verificación |
 | Orquestación por roles | `skilled/orchestration/` | registro de agentes, dependencias e historial |
 | Memoria | `sharememory/hermes_memory/` | persistencia, búsqueda y exportación validada |
@@ -34,11 +34,15 @@ que requieren binarios, credenciales o presupuesto del host se ejecutan con
 ## Flujo operativo
 
 1. Hermes recibe una consulta.
-2. El plugin puede añadir evidencia de NetworkX, Z3 o PyDatalog antes de la llamada al modelo.
-3. Solo una orden con prefijo `/orchestrate` y `HERMES_AUTONOMY_ENABLED=1` entra en `HermesOrchestrationBridge`.
-4. `AutonomousOrchestrator` descompone y supervisa; `TaskRouter` persiste el estado y mantiene bloqueos accionables.
-5. `ClaudeCodeExecutor` puede ejecutar el rol `builder` cuando se registra de forma explícita y el host está autenticado.
-6. Solo resultados validados se incorporan a memoria o al ciclo de mejora.
+2. `ProblemExtractor` crea una IR trazable con hechos, reglas, relaciones,
+   restricciones, variables, objetivos, incógnitas, consultas y procedencia.
+3. Un modo simple ejecuta un motor aislado. `combined` encadena NetworkX →
+   PyDatalog → Z3/Optimize y valida que todos los motores requeridos terminen.
+4. El plugin inyecta resultados y transferencias entre motores antes de la llamada al modelo.
+5. Solo una orden con prefijo `/orchestrate` y `HERMES_AUTONOMY_ENABLED=1` entra en `HermesOrchestrationBridge`.
+6. `AutonomousOrchestrator` descompone y supervisa; `TaskRouter` persiste el estado y mantiene bloqueos accionables.
+7. `ClaudeCodeExecutor` puede ejecutar el rol `builder` cuando se registra de forma explícita y el host está autenticado.
+8. Solo resultados validados se incorporan a memoria o al ciclo de mejora.
 
 ## Integraciones externas
 

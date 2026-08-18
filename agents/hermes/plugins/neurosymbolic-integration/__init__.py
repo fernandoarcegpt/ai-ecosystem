@@ -134,6 +134,20 @@ def register(ctx):
                 )
                 _write_proof(f"ENGINE={engine} STATUS={status}")
 
+                if engine == "combined":
+                    combined_results = result.get("results", {}) or {}
+                    engine_keys = {
+                        "NETWORKX": "networkx_analysis",
+                        "PYDATALOG": "pydatalog_analysis",
+                        "Z3": "z3_analysis",
+                    }
+                    for label, key in engine_keys.items():
+                        engine_result = combined_results.get(key) or {}
+                        if key in combined_results and engine_result:
+                            _write_proof(
+                                f"{label}={engine_result.get('status', 'missing')}"
+                            )
+
                 if status != "success":
                     logger.warning(
                         "[neurosymbolic-plugin] Symbolic result not successful; "

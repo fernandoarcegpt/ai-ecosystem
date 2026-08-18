@@ -7,10 +7,25 @@ Reparado para:
 3. Devolver resultados sat/unsat reales
 """
 
-from z3 import Solver, Int, Bool, And, Or, Not, Implies, sat, unsat, unknown, ModelRef
+from z3 import (
+    Solver,
+    Optimize,
+    Int,
+    Bool,
+    And,
+    Or,
+    Not,
+    Implies,
+    sat,
+    unsat,
+    unknown,
+    is_true,
+    is_false,
+)
 from typing import Dict, List, Optional, Any, Tuple
 from enum import Enum
 import logging
+import re
 import re
 
 logger = logging.getLogger(__name__)
@@ -40,6 +55,16 @@ class ConstraintSolver:
         self.solver = Solver()
         self.variables: Dict[str, Any] = {}
         self.constraints_applied: List[str] = []
+        self.objectives_applied: List[str] = []
+        self._tracked_labels: Dict[str, str] = {}
+        self._optimization_enabled = False
+
+    def enable_optimization(self) -> None:
+        """Usar Optimize antes de crear variables o restricciones."""
+        if self.variables or self.constraints_applied:
+            raise RuntimeError("Optimization must be enabled before formalization")
+        self.solver = Optimize()
+        self._optimization_enabled = True
     
     def add_integer_variable(self, name: str, min_val: Optional[int] = None, max_val: Optional[int] = None) -> Int:
         """Crear variable entera Z3 con límites opcionales"""
@@ -67,6 +92,41 @@ class ConstraintSolver:
             return True
         except Exception as e:
             logger.warning(f"Z3 constraint addition failed: {e}")
+            return False
+
+    def add_tracked_constraint(self, z3_expr, label: str) -> bool:
+        """Añadir una restricción con etiqueta recuperable en un unsat core."""
+        try:
+            safe_label = re.sub(r"[^A-Za-z0-9_]", "_", label)
+            safe_label = safe_label or f"constraint_{len(self._tracked_labels)}"
+            if safe_label[0].isdigit():
+                safe_label = f"c_{safe_label}"
+            unique_label = safe_label
+            suffix = 2
+            while unique_label in self._tracked_labels:
+                unique_label = f"{safe_label}_{suffix}"
+                suffix += 1
+            marker = Bool(unique_label)
+            self.solver.assert_and_track(z3_expr, marker)
+            self._tracked_labels[unique_label] = label
+            self.constraints_applied.append(label)
+            return True
+        except Exception as exc:
+            logger.warning("Tracked Z3 constraint addition failed: %s", exc)
+            return False
+
+    def add_objective(self, direction: str, expression, description: str) -> bool:
+        if not self._optimization_enabled:
+            return False
+        try:
+            if direction == "minimize":
+                self.solver.minimize(expression)
+            else:
+                self.solver.maximize(expression)
+            self.objectives_applied.append(description)
+            return True
+        except Exception as exc:
+            logger.warning("Z3 objective addition failed: %s", exc)
             return False
 
     def add_constraint(self, expression: str) -> bool:
@@ -163,7 +223,10 @@ class ConstraintSolver:
             "status": "unknown",
             "solution_values": {},
             "formalized_constraints": list(self.constraints_applied),
-            "variables_count": len(self.variables)
+            "variables_count": len(self.variables),
+            "optimizer_used": self._optimization_enabled,
+            "objectives_applied": list(self.objectives_applied),
+            "unsat_core": [],
         }
         
         try:
@@ -178,16 +241,31 @@ class ConstraintSolver:
                 result["status"] = "satisfiable"
                 result["solution_values"] = {}
                 for var_name, var in self.variables.items():
-                    val = model[var]
+                    val = model.eval(var, model_completion=True)
                     if val is not None:
-                        # Convertir a entero Python
-                        result["solution_values"][var_name] = val.as_long()
+                        if is_true(val):
+                            result["solution_values"][var_name] = True
+                        elif is_false(val):
+                            result["solution_values"][var_name] = False
+                        elif hasattr(val, "as_long"):
+                            result["solution_values"][var_name] = val.as_long()
+                        else:
+                            result["solution_values"][var_name] = str(val)
                     else:
                         result["solution_values"][var_name] = None
                 result["solution"] = dict(result["solution_values"])
                         
             elif status == unsat:
                 result["status"] = "unsatisfiable"
+                core = []
+                try:
+                    core = [
+                        self._tracked_labels.get(str(item), str(item))
+                        for item in self.solver.unsat_core()
+                    ]
+                except Exception:
+                    core = []
+                result["unsat_core"] = core
                 
             else:
                 result["status"] = "unknown"
@@ -204,7 +282,16 @@ class ConstraintSolver:
         self.solver = Solver()
         self.variables = {}
         self.constraints_applied = []
+        self.objectives_applied = []
+        self._tracked_labels = {}
+        self._optimization_enabled = False
     
     def get_conflict_info(self) -> List[str]:
-        """Obtener información sobre conflictos"""
-        return list(self.constraints_applied)
+        """Devolver el núcleo insatisfacible real cuando esté disponible."""
+        try:
+            return [
+                self._tracked_labels.get(str(item), str(item))
+                for item in self.solver.unsat_core()
+            ]
+        except Exception:
+            return []

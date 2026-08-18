@@ -82,6 +82,41 @@ def test_plugin_ignores_non_cli_platform(tmp_path, monkeypatch):
     assert "CONTEXT_INJECTED" not in proof.read_text(encoding="utf-8")
 
 
+def test_pre_llm_hook_logs_composed_transfer_pipeline(tmp_path, monkeypatch):
+    proof = tmp_path / "combined-hook-proof.log"
+    monkeypatch.setenv("HERMES_NEUROSYMBOLIC_PROOF_LOG", str(proof))
+    plugin = _load_plugin()
+    ctx = FakeHermesContext()
+    plugin.register(ctx)
+
+    prompt = (
+        "Plan de transferencias documentales 2027. RRHH tiene 60 cajas listas. "
+        "RRHH no ha remitido el inventario definitivo. Contabilidad tiene 50 "
+        "cajas listas. Contabilidad presenta inventario inconsistente. "
+        "Dirección tiene 35 cajas listas. OCI tiene 15 cajas listas. El flujo "
+        "es organizacion -> inventario -> revision -> subsanacion -> "
+        "conformidad -> transferencia. Si falta el inventario definitivo, la "
+        "unidad queda bloqueada. Si el inventario es inconsistente, la unidad "
+        "requiere corrección. Una unidad no puede recibirse si está bloqueada. "
+        "Una unidad no puede recibirse si requiere corrección. La capacidad "
+        "disponible es 120 cajas. La meta institucional es 9 transferencias."
+    )
+    result = ctx.hooks["pre_llm_call"](
+        user_message=prompt,
+        platform="cli",
+        session_id="combined-test",
+    )
+
+    assert result is not None
+    assert "MODO: combined" in result["context"]
+    evidence = proof.read_text(encoding="utf-8")
+    assert "ENGINE=combined STATUS=success" in evidence
+    assert "NETWORKX=success" in evidence
+    assert "PYDATALOG=success" in evidence
+    assert "Z3=success" in evidence
+    assert "CONTEXT_INJECTED" in evidence
+
+
 def test_explicit_orchestration_command_runs_through_hermes_hook(
     tmp_path,
     monkeypatch,

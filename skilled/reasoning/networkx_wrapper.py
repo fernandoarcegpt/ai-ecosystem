@@ -89,6 +89,37 @@ class GraphAnalyzer:
             return list(nx.topological_sort(self.graph))
         return None
 
+    def get_transitive_relations(self) -> List[Tuple[str, str]]:
+        """Relaciones alcanzables sin inventar duración ni criticidad."""
+        if not self.is_acyclic():
+            return []
+        closure = nx.transitive_closure_dag(self.graph)
+        return list(closure.edges())
+
+    def get_reachability(self) -> Dict[str, Dict[str, List[str]]]:
+        """Ancestros y descendientes de cada nodo."""
+        return {
+            str(node): {
+                "ancestors": sorted(str(item) for item in nx.ancestors(self.graph, node)),
+                "descendants": sorted(str(item) for item in nx.descendants(self.graph, node)),
+            }
+            for node in self.graph.nodes()
+        }
+
+    def get_bottleneck_nodes(self) -> List[Dict[str, Any]]:
+        """Nodos con mayor alcance aguas abajo; no equivale a camino crítico."""
+        ranked = [
+            {
+                "node": str(node),
+                "downstream_count": len(nx.descendants(self.graph, node)),
+            }
+            for node in self.graph.nodes()
+        ]
+        return sorted(
+            (item for item in ranked if item["downstream_count"] > 0),
+            key=lambda item: (-item["downstream_count"], item["node"]),
+        )
+
     def find_shortest_path(self, source: str, target: str) -> Optional[List[str]]:
         """Devuelve la ruta dirigida más corta o ``None`` si no existe."""
         try:
@@ -116,11 +147,15 @@ class GraphAnalyzer:
             "is_acyclic": self.is_acyclic(),
             "cycles_found": self.detect_cycles(),
             "topological_order": None,
+            "transitive_relations": [],
+            "reachability": self.get_reachability(),
+            "bottleneck_nodes": self.get_bottleneck_nodes(),
             "analysis_complete": False
         }
         
         if result["is_acyclic"]:
             result["topological_order"] = self.get_topological_order()
+            result["transitive_relations"] = self.get_transitive_relations()
             result["analysis_complete"] = True
         else:
             result["status"] = NetworkXResultStatus.PARTIAL.value

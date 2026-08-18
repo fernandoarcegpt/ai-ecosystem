@@ -36,6 +36,7 @@ class SymbolicConstraint:
     items: List[str] = field(default_factory=list)
     people: List[str] = field(default_factory=list)
     description: str = ""
+    source: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -44,6 +45,7 @@ class SymbolicConstraint:
             "items": self.items,
             "people": self.people,
             "description": self.description,
+            "source": self.source,
         }
 
 
@@ -64,7 +66,12 @@ class SymbolicProblem:
     rules: List[Dict[str, Any]] = field(default_factory=list)
     constraints: List[SymbolicConstraint] = field(default_factory=list)
     relations: List[List[str]] = field(default_factory=list)
+    relation_metadata: List[Dict[str, Any]] = field(default_factory=list)
     variables: Dict[str, Any] = field(default_factory=dict)
+    objectives: List[Dict[str, Any]] = field(default_factory=list)
+    unknowns: List[Dict[str, Any]] = field(default_factory=list)
+    queries: List[Any] = field(default_factory=list)
+    provenance: List[Dict[str, Any]] = field(default_factory=list)
     source_query: str = ""
     structural_indicators: Dict[str, Any] = field(default_factory=dict)
 
@@ -162,7 +169,12 @@ class SymbolicProblem:
             "rules": self.rules,
             "constraints": [c.to_dict() for c in self.constraints],
             "relations": self.relations,
+            "relation_metadata": self.relation_metadata,
             "variables": self.variables,
+            "objectives": self.objectives,
+            "unknowns": self.unknowns,
+            "queries": self.queries,
+            "provenance": self.provenance,
             "source_query": self.source_query,
             "structural_indicators": self.structural_indicators,
         }
@@ -234,6 +246,31 @@ class ProblemExtractor:
         parts = re.split(r"\s*,\s*|\s+\by\b\s+", cleaned, flags=re.IGNORECASE)
         return [p.strip() for p in parts if p.strip()]
 
+    @staticmethod
+    def _slug(value: str) -> str:
+        """Identificador estable y legible para variables/predicados."""
+        import unicodedata
+
+        normalized = unicodedata.normalize("NFKD", value)
+        ascii_value = "".join(
+            char for char in normalized if not unicodedata.combining(char)
+        )
+        return re.sub(r"[^A-Za-z0-9_]+", "_", ascii_value).strip("_")
+
+    @staticmethod
+    def _source_record(
+        text: str,
+        match: re.Match,
+        kind: str,
+        confidence: float = 1.0,
+    ) -> Dict[str, Any]:
+        return {
+            "kind": kind,
+            "source_text": match.group(0),
+            "span": [match.start(), match.end()],
+            "confidence": confidence,
+        }
+
     @classmethod
     def extract(
         cls,
@@ -274,6 +311,11 @@ class ProblemExtractor:
                     problem.relations.append(relation)
 
             problem.variables.update(component.variables)
+            problem.objectives.extend(component.objectives)
+            problem.unknowns.extend(component.unknowns)
+            problem.queries.extend(component.queries)
+            problem.provenance.extend(component.provenance)
+            problem.relation_metadata.extend(component.relation_metadata)
             problem.structural_indicators.update(
                 component.structural_indicators
             )
@@ -386,6 +428,22 @@ class ProblemExtractor:
             merge_component(cls.extract_constraints_problem(text))
 
         # --------------------------------------------------
+        # PLANIFICACIÓN DE TRANSFERENCIAS DOCUMENTALES
+        # --------------------------------------------------
+
+        if any(
+            marker in lower
+            for marker in (
+                "transferencia documental",
+                "transferencias documentales",
+                "cajas listas",
+                "inventario definitivo",
+                "capacidad disponible",
+            )
+        ):
+            merge_component(cls.extract_transfer_plan(text))
+
+        # --------------------------------------------------
         # CONTEXTO ESTRUCTURADO EXPLÍCITO
         # --------------------------------------------------
 
@@ -472,6 +530,7 @@ class ProblemExtractor:
                             items=list(raw.get("items", [])),
                             people=list(raw.get("people", [])),
                             description=raw.get("description", ""),
+                            source=dict(raw.get("source", {})),
                         )
                     )
                 elif isinstance(raw, str):
@@ -485,6 +544,20 @@ class ProblemExtractor:
             problem.structural_indicators = dict(
                 context["structural_indicators"]
             )
+
+        for key in (
+            "objectives",
+            "unknowns",
+            "queries",
+            "provenance",
+            "relation_metadata",
+        ):
+            if context.get(key):
+                current = getattr(problem, key)
+                current.extend(list(context[key]))
+
+        if context.get("variables"):
+            problem.variables.update(dict(context["variables"]))
 
     @staticmethod
     def _infer_mode_from_structure(problem: SymbolicProblem) -> None:
@@ -505,6 +578,231 @@ class ProblemExtractor:
             problem.mode = ReasoningMode.CONSTRAINTS
         elif has_logic:
             problem.mode = ReasoningMode.LOGIC
+
+    @classmethod
+    def extract_transfer_plan(cls, text: str) -> SymbolicProblem:
+        """Formaliza planes documentales solo a partir de frases explícitas.
+
+        Esta ruta deliberadamente acotada convierte el caso operativo usado
+        por Archivo Central en una regresión reproducible sin delegar la
+        creación de hechos al LLM.
+        """
+        problem = SymbolicProblem(
+            mode=ReasoningMode.NONE,
+            source_query=text,
+        )
+
+        unit_pattern = (
+            r"((?:[A-ZÁÉÍÓÚÜÑ]{2,8}|[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)"
+            r"(?:\s+(?:[A-ZÁÉÍÓÚÜÑ]{2,8}|"
+            r"[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)){0,2})"
+        )
+        ready_pattern = re.compile(
+            rf"\b{unit_pattern}\s+(?:tiene|cuenta\s+con)\s+(\d+)\s+"
+            r"cajas?\s+(?:listas?|organizadas?|listas?\s+para\s+transferir)",
+        )
+
+        units: List[str] = []
+        ready: Dict[str, int] = {}
+        for match in ready_pattern.finditer(text):
+            unit = match.group(1).strip()
+            boxes = int(match.group(2))
+            units.append(unit)
+            ready[unit] = boxes
+            source = cls._source_record(text, match, "fact")
+            problem.facts.append(("ready_boxes", unit, boxes))
+            problem.provenance.append(source)
+
+        missing_pattern = re.compile(
+            rf"\b{unit_pattern}\s+(?:todav[ií]a\s+)?no\s+ha\s+remitido\s+"
+            r"(?:el\s+)?inventario\s+definitivo",
+        )
+        for match in missing_pattern.finditer(text):
+            unit = match.group(1).strip()
+            units.append(unit)
+            source = cls._source_record(text, match, "fact")
+            problem.facts.append(("missing_final_inventory", unit))
+            problem.provenance.append(source)
+
+        inconsistent_patterns = (
+            re.compile(
+                rf"\b{unit_pattern}\s+(?:tiene|presenta)\s+(?:un\s+)?"
+                r"inventario\s+inconsistente",
+            ),
+            re.compile(
+                rf"\bel\s+inventario\s+de\s+{unit_pattern}\s+es\s+inconsistente",
+            ),
+        )
+        for pattern in inconsistent_patterns:
+            for match in pattern.finditer(text):
+                unit = match.group(1).strip()
+                units.append(unit)
+                source = cls._source_record(text, match, "fact")
+                fact = ("inventory_inconsistent", unit)
+                if fact not in problem.facts:
+                    problem.facts.append(fact)
+                    problem.provenance.append(source)
+
+        # Flujo explícito escrito con flechas: no se inventan etapas.
+        graph_problem = cls.extract_graph_problem(text)
+        problem.entities.extend(graph_problem.entities)
+        problem.relations.extend(graph_problem.relations)
+        for relation in graph_problem.relations:
+            relation_match = re.search(
+                rf"{re.escape(relation[0])}\s*(?:->|→)\s*"
+                rf"{re.escape(relation[1])}",
+                text,
+            )
+            metadata = {
+                "source": relation[0],
+                "target": relation[1],
+                "type": "precedes",
+            }
+            if relation_match:
+                source = cls._source_record(text, relation_match, "relation")
+                metadata["provenance"] = source
+                problem.provenance.append(source)
+            problem.relation_metadata.append(metadata)
+
+        # Reglas de negocio solo cuando la relación causal aparece en el texto.
+        rule_specs = (
+            (
+                r"si\s+falta\s+(?:el\s+)?inventario\s+definitivo[^.;]*"
+                r"(?:queda|est[aá])\s+bloquead[ao]",
+                "blocked_from_missing_inventory",
+                "blocked(X)",
+                "missing_final_inventory(X)",
+            ),
+            (
+                r"si\s+(?:el\s+)?inventario\s+es\s+inconsistente[^.;]*"
+                r"requiere\s+correcci[oó]n",
+                "correction_from_inconsistent_inventory",
+                "requires_correction(X)",
+                "inventory_inconsistent(X)",
+            ),
+            (
+                r"no\s+puede\s+recibirse[^.;]*si\s+est[aá]\s+bloquead[ao]",
+                "cannot_receive_blocked",
+                "cannot_receive(X)",
+                "blocked(X)",
+            ),
+            (
+                r"no\s+puede\s+recibirse[^.;]*si\s+requiere\s+correcci[oó]n",
+                "cannot_receive_correction",
+                "cannot_receive(X)",
+                "requires_correction(X)",
+            ),
+        )
+        for pattern, name, head, body in rule_specs:
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if match:
+                source = cls._source_record(text, match, "rule")
+                problem.rules.append(
+                    {"name": name, "head": head, "body": body, "source": source}
+                )
+                problem.provenance.append(source)
+
+        if problem.rules:
+            heads = cls._unique(rule["head"] for rule in problem.rules)
+            problem.queries.extend(heads)
+
+        capacity_match = re.search(
+            r"capacidad(?:\s+disponible|\s+inicial)?\s+(?:es|de|=)?\s*(\d+)\s+cajas?",
+            text,
+            flags=re.IGNORECASE,
+        )
+        capacity = int(capacity_match.group(1)) if capacity_match else None
+        if capacity_match:
+            source = cls._source_record(text, capacity_match, "constraint")
+            problem.provenance.append(source)
+
+        gain_match = re.search(
+            r"reorganizaci[oó]n[^.;]*?(?:aumenta|agrega|suma|libera)\s+"
+            r"(?:la\s+capacidad\s+en\s+)?(\d+)\s+cajas?",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if gain_match:
+            source = cls._source_record(text, gain_match, "variable")
+            problem.variables["reorganize"] = {"type": "bool", "source": source}
+            problem.provenance.append(source)
+
+        problem.entities = cls._unique(list(problem.entities) + units)
+        receive_variables = []
+        for unit in cls._unique(units):
+            variable = f"receive_{cls._slug(unit)}"
+            receive_variables.append(variable)
+            problem.variables[variable] = {"type": "bool", "entity": unit}
+
+        if ready and capacity is not None:
+            weights = {
+                f"receive_{cls._slug(unit)}": boxes
+                for unit, boxes in ready.items()
+            }
+            limit: Any = capacity
+            if gain_match:
+                limit = {
+                    "base": capacity,
+                    "conditional_variable": "reorganize",
+                    "conditional_gain": int(gain_match.group(1)),
+                }
+            problem.constraints.append(
+                SymbolicConstraint(
+                    type="weighted_sum_le",
+                    value={"weights": weights, "limit": limit},
+                    items=list(weights),
+                    description="El volumen seleccionado no supera la capacidad disponible",
+                    source=(
+                        cls._source_record(text, capacity_match, "constraint")
+                        if capacity_match else {}
+                    ),
+                )
+            )
+
+        target_match = re.search(
+            r"(?:meta|objetivo)\s+(?:institucional\s+)?(?:de|es)?\s*(\d+)\s+"
+            r"transferencias?",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if target_match and receive_variables:
+            source = cls._source_record(text, target_match, "objective")
+            problem.objectives.append(
+                {
+                    "type": "maximize_count",
+                    "items": receive_variables,
+                    "target": int(target_match.group(1)),
+                    "priority": 1,
+                    "source": source,
+                }
+            )
+            problem.provenance.append(source)
+
+        if ready:
+            problem.objectives.append(
+                {
+                    "type": "maximize_weighted_sum",
+                    "weights": {
+                        f"receive_{cls._slug(unit)}": boxes
+                        for unit, boxes in ready.items()
+                    },
+                    "priority": 2,
+                }
+            )
+
+        for match in re.finditer(
+            r"(?:se\s+desconoce|no\s+se\s+conoce)\s+([^.;]+)",
+            text,
+            flags=re.IGNORECASE,
+        ):
+            problem.unknowns.append(
+                {
+                    "description": match.group(1).strip(),
+                    "source": cls._source_record(text, match, "unknown", 1.0),
+                }
+            )
+
+        return problem
 
     @classmethod
     def extract_assignable_entities(cls, text: str) -> SymbolicProblem:
