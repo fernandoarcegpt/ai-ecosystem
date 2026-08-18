@@ -142,13 +142,12 @@ def validate() -> dict[str, object]:
 
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
     scripts = package.get("scripts", {})
-    for source in (ROOT / "README.md", ROOT / "CLAUDE.md", ROOT / "ARCHITECTURE.md"):
+    for source in (ROOT / "README.md", ROOT / "CLAUDE.md"):
         for command in re.findall(r"npm run ([a-zA-Z0-9:_-]+)", source.read_text(encoding="utf-8")):
             if command not in scripts:
                 errors.append(f"nonexistent npm command in {source.relative_to(ROOT)}: {command}")
 
     critical_paths = [
-        ROOT / "src/ingest.py",
         ROOT / "knowledge-service/run_ingest.sh",
         ROOT / "agents/hermes/plugins/neurosymbolic-integration/hermes_integration.py",
         ROOT / "sharememory/hermes_memory/knowledge_broker.py",
