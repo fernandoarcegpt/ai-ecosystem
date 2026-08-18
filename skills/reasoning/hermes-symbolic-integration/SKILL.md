@@ -27,6 +27,9 @@ triggers:
 
 # Hermes Symbolic Integration
 
+> Before changing the plugin, paths, or commands, consult the Hermes and
+> reasoning section of `docs/DOCUMENTATION_INDEX.md` and apply its update criteria.
+
 This skill provides automatic neuro-symbolic reasoning integration with the Hermes chat pipeline. It intercepts user queries and routes them to appropriate symbolic engines (Z3, NetworkX, PyDatalog) based on semantic analysis.
 
 ## Architecture
@@ -75,7 +78,7 @@ This skill provides automatic neuro-symbolic reasoning integration with the Herm
 pip install networkx z3-solver pydatalog
 
 # Copy skill to Hermes profile
-cp ~/.hermes/skills/hermes-symbolic-integration /home/fernando/.hermes/skills/reasoning/
+cp ~/.hermes/skills/hermes-symbolic-integration $HOME/.hermes/skills/reasoning/
 ```
 
 ## Usage from CLI

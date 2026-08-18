@@ -3,6 +3,10 @@ name: codebase-memory
 description: Use the codebase knowledge graph for structural code queries. Triggers on: explore the codebase, understand the architecture, what functions exist, show me the structure, who calls this function, what does X call, trace the call chain, find callers of, show dependencies, impact analysis, dead code, unused functions, high fan-out, refactor candidates, code quality audit, graph query syntax, Cypher query examples, edge types, how to use search_graph.
 ---
 
+For documentation work, use `docs/DOCUMENTATION_INDEX.md` to select only the
+relevant sources. A CBM code index does not replace the documentation inventory
+or prove that host integrations are active.
+
 # Codebase Memory — Knowledge Graph Tools
 
 Graph tools return precise structural results in ~500 tokens vs ~80K for grep.

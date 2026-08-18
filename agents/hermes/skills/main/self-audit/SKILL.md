@@ -10,6 +10,10 @@ license: MIT
 
 # Self-Audit Skill
 
+> Antes de auditar, consulte `docs/DOCUMENTATION_INDEX.md` para seleccionar las
+> fuentes del área. La verificación ejecutable vigente es `npm run verify:all`;
+> los comandos no presentes en `package.json` o `scripts/` son históricos.
+
 ## Propósito
 
 Esta habilidad permite **evaluar cambios** en el ecosistema de forma dinámica, asegurando que:
@@ -80,7 +84,7 @@ self-audit --repair   # (opcional, solo si se detectaron errores automáticos)
 
 - **No se ejecuta automáticamente** en cada cambio; el usuario debe invocar `--audit` manualmente o programar una tarea cron para hacerlo periódicamente.  
 - La auditoría **no modifica** archivos por sí misma, solo informa y, opcionalmente, aplica correcciones simples con `--repair`.  
-- La auditoría se ejecuta en el **directorio de trabajo actual**; asegúrate de estar en la raíz del proyecto (`/home/fernando/ai-ecosystem`) antes de correrla.  
+- La auditoría se ejecuta en el **directorio de trabajo actual**; asegúrate de estar en la raíz del proyecto (`$HOME/ai-ecosystem`) antes de correrla.
 
 ---
 

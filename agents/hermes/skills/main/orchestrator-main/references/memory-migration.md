@@ -1,17 +1,20 @@
 # Guía de Migración de Memoria Compartida
 
+> Referencia histórica. Antes de migrar memoria, consulte el estado y las
+> fuentes vigentes en `docs/DOCUMENTATION_INDEX.md`.
+
 ## Proceso de Verificación Obligatorio
 
 ### Paso 1: Escaneo de Referencias
 ```bash
-grep -r "wiki_memoria" /home/fernando/ai-ecosystem \
+grep -r "wiki_memoria" $HOME/ai-ecosystem \
   --include="*.py" --include="*.sh" --include="*.md" --include="*.json"
 ```
 
 ### Paso 2: Actualización Masiva de Rutas
 ```bash
 # Reemplazar todas las ocurrencias
-sed -i 's|wiki_memoria|sharememory|g' $(grep -rl "wiki_memoria" /home/fernando/ai-ecosystem)
+sed -i 's|wiki_memoria|sharememory|g' $(grep -rl "wiki_memoria" $HOME/ai-ecosystem)
 ```
 
 ### Paso 3: Verificación de Integridad
@@ -22,7 +25,7 @@ git diff --stat  # Ver cambios
 
 ### Paso 4: Eliminación Segura
 ```bash
-rm -rf /home/fernando/ai-ecosystem/wiki_memoria
+rm -rf $HOME/ai-ecosystem/wiki_memoria
 ```
 
 ### Paso 5: Registro en Changelog

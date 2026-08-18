@@ -10,6 +10,10 @@ related_skills: [hermes-agent, general-planning]
 
 # AI Ecosystem Blueprint Generator
 
+> Use `docs/DOCUMENTATION_INDEX.md` to select only the sources for the affected
+> area. After the audit, update sources whose criteria changed and update the
+> index if documentation was created, moved, replaced, or archived.
+
 This skill provides a methodology for conducting exhaustive technical audits and generating comprehensive system documentation for complex AI agent ecosystems.
 
 ## When to Use This Skill
