@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 
@@ -69,7 +70,30 @@ def _covered(path: str, registered: set[str]) -> bool:
 
 def _discover_documents() -> set[str]:
     result: set[str] = set(REQUIRED_NON_MARKDOWN)
-    for path in ROOT.rglob("*"):
+    completed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(ROOT),
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ],
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode == 0:
+        candidates = (
+            ROOT / item
+            for item in completed.stdout.decode("utf-8", errors="surrogateescape").split("\0")
+            if item
+        )
+    else:
+        candidates = ROOT.rglob("*")
+
+    for path in candidates:
         if not path.is_file() or any(part in IGNORED_PARTS for part in path.parts):
             continue
         if path.suffix.lower() in DOC_EXTENSIONS:
