@@ -1,5 +1,8 @@
 # �� 📖 Tutorial de Instalación: Integración de Razonamiento Simbólico para Hermes Agent
 
+> **Estado: histórico y reemplazado.** Use `README.md` y
+> `npm run test:hermes-cli` para la instalación y verificación actuales.
+
 ## �� 🎯 Objetivo
 Esta guía te enseñará a instalar y configurar la integración de razonamiento simbólico en Hermes Agent, permitiendo que tu asistente AI entienda y resuelva automáticamente consultas sobre reglas, restricciones, dependencias y situaciones de revisión humana.
 
@@ -66,7 +69,7 @@ El archivo `SKILL.md` contiene toda la configuración necesaria para que Hermes 
 Si tienes acceso al proyecto donde se encuentra el archivo original:
 ```bash
 # Desde la carpeta del proyecto
-cp /home/fernando/ai-ecosystem/skills/reasoning/hermes-symbolic-integration/SKILL.md ~/.hermes/skills/reasoning/
+cp $HOME/ai-ecosystem/skills/reasoning/hermes-symbolic-integration/SKILL.md ~/.hermes/skills/reasoning/
 ```
 
 ### Opción B: Crear manualmente
@@ -153,7 +156,7 @@ This skill provides automatic neuro-symbolic reasoning integration with the Herm
 pip install networkx z3-solver pydatalog
 
 # Copy skill to Hermes profile
-cp ~/.hermes/skills/hermes-symbolic-integration /home/fernando/.hermes/skills/reasoning/
+cp ~/.hermes/skills/hermes-symbolic-integration $HOME/.hermes/skills/reasoning/
 ```
 
 ## Usage from CLI

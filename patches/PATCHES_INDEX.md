@@ -1,5 +1,8 @@
 # Bitácora de Parches y Modificaciones del Proyecto
 
+> **Estado: histórico y reemplazado.** El catálogo vigente, que distingue
+> evidencia, respaldos y riesgos, es `docs/PATCH_CATALOG.md`.
+
 > **Propósito**: Registro centralizado de todos los cambios significativos realizados en el proyecto, complementando el historial de Git con contexto técnico, decisiones, pruebas e incidencias.
 
 ## 📅 Tabla de Contenidos
@@ -42,8 +45,8 @@ La ruta de la base de datos KùzuDB no incluía la extensión `.kuzu`, causando 
 
 #### Solución Aplicada:
 ```diff
-- db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base"
-+ db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
+- db_path = "$HOME/ai-ecosystem/storage/kuzu/knowledge_base"
++ db_path = "$HOME/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
 ```
 
 #### Detalles Técnicos:

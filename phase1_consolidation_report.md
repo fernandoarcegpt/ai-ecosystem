@@ -1,3 +1,8 @@
+# Informe histórico de consolidación (fase 1)
+
+> **Estado: histórico.** Es la salida de una ejecución puntual. Consulte
+> `ARCHITECTURE.md` y `docs/verification-report.md` para el estado vigente.
+
 ============================================================
 Fase 1: Consolidación y Inventario
 ============================================================

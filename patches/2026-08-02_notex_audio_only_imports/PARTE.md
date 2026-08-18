@@ -1,7 +1,11 @@
 # Parche: notex_audio_only_imports
 
+> **Estado: obsoleto.** `notex/main.go` no existe en este repositorio. Se
+> conserva el informe y el diff, pero no hay evidencia que permita aplicarlo o
+> verificarlo contra el árbol actual. Consulte `docs/PATCH_CATALOG.md`.
+
 **Fecha**: 2026-08-02  
-**Sesión**: 8f96ed12-a53b-4654-a099-a4b3123b885f  
+**Sesión**: <session-id>
 **Componente**: `notex/main.go` - Arquitectura audio-only  
 **Tipo**: Refactorización de arquitectura / Modificación de imports
 
@@ -70,13 +74,13 @@ import (
 
 ### Verificación de modo audio-only
 ```bash
-cd /home/fernando/ai-ecosystem/notex && ./notex -audio-only -version
+cd $HOME/ai-ecosystem/notex && ./notex -audio-only -version
 ```
 **Resultado**: ✅ Ejecuta y muestra versión sin errores
 
 ### Validación de flags
 ```bash
-cd /home/fernando/ai-ecosystem/notex && ./notex --help | grep audio
+cd $HOME/ai-ecosystem/notex && ./notex --help | grep audio
 ```
 **Resultado**: ✅ Muestra el flag `-audio-only` en la ayuda
 
@@ -104,7 +108,7 @@ cd /home/fernando/ai-ecosystem/notex && ./notex --help | grep audio
 
 ## 📚 Referencias
 
-- **Sesión original**: 8f96ed12-a53b-4654-a099-a4b3123b885f  
-- **Archivo modificado**: `/home/fernando/ai-ecosystem/notex/main.go`  
+- **Sesión original**: <session-id>
+- **Archivo modificado**: `$HOME/ai-ecosystem/notex/main.go`
 - **Flag auditado**: `-audio-only`  
 - **Imports verificados**: runtime, time, golog, rotatelogs, notex/backend

@@ -147,3 +147,30 @@ el proceso verificador, no del texto declarado por el modelo.
 Una capacidad solo se declara operativa con resultado observable, verificación
 y evidencia persistible. `npm run verify:all` es la puerta reproducible;
 `npm run verify:all-live` añade las integraciones reales del host.
+
+## Revisión documental integral
+
+La revisión del 2026-08-17 localizó 355 archivos documentales relevantes. El
+índice maestro los representa mediante 63 entradas exactas o colecciones
+delimitadas y define una fuente principal por área. El catálogo registra ocho
+parches, migraciones o colecciones de respaldo con evidencia, estado y riesgo.
+
+Se actualizaron las fuentes operativas de arquitectura, instalación,
+instrucciones de agentes, validación, memoria e ingestión. Los manuales de CBM,
+los informes de consolidación y las bitácoras antiguas quedaron identificados
+como parciales, históricos o reemplazados. Las instrucciones centrales y los
+skills pertinentes remiten al índice y cargan documentación de forma
+contextual.
+
+La validación comprueba rutas inventariadas, cobertura de documentos nuevos,
+duplicados, campos obligatorios, enlaces internos de fuentes vigentes,
+catálogo de parches, comandos npm documentados y rutas absolutas en componentes
+críticos. Se ejecuta desde `npm test`, `npm run verify:all` y GitHub Actions.
+
+No se hizo una evaluación semántica individual de cada archivo dentro de
+`patches/backups/history/` ni de `patches/2026-08-17_auto_copied_files/`: son
+copias masivas y duplicadas, inventariadas como colecciones de respaldo. Los
+archivos históricos que contienen ejemplos de credenciales o detalles privados
+del host se conservaron sin reescritura y se clasificaron desde el índice. Las
+pruebas reales de seguridad permanecen fuera de alcance por indicación del
+propietario.
