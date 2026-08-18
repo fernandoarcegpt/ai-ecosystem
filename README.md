@@ -3,6 +3,10 @@
 Repositorio experimental para integrar Hermes con razonamiento
 neurosimbólico, enrutamiento de tareas y memoria persistente.
 
+La documentación se navega desde
+[`docs/DOCUMENTATION_INDEX.md`](docs/DOCUMENTATION_INDEX.md), que separa las
+fuentes vigentes de las referencias parciales, históricas y reemplazadas.
+
 ## Qué funciona
 
 - Detección y análisis de grafos dirigidos con NetworkX.

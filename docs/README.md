@@ -1,54 +1,17 @@
-# Calculadora Básica
+# Documentación
 
-Esta feature proporciona un módulo de **calculadora** con cuatro operaciones aritméticas básicas:
+El punto de entrada es [`DOCUMENTATION_INDEX.md`](DOCUMENTATION_INDEX.md). El
+índice indica qué documento es principal, cuál es histórico, cuándo debe
+consultarse y qué cambios obligan a actualizarlo.
 
-| Función | Descripción |
-|---|---|
-| `sumar(a, b)` | Devuelve la suma de `a` y `b`. |
-| `restar(a, b)` | Devuelve la resta de `b` de `a`. |
-| `multiplicar(a, b)` | Devuelve el producto de `a` y `b`. |
-| `dividir(a, b)` | Devuelve el cociente de `a` dividido por `b`. Si `b` es 0 lanza `ValueError`. |
+Referencias principales:
 
-## Estructura de directorios
+- [Arquitectura vigente](../ARCHITECTURE.md)
+- [Operación y pruebas](../README.md)
+- [Instrucciones para agentes](../CLAUDE.md)
+- [Catálogo de parches](PATCH_CATALOG.md)
+- [Informe de verificación](verification-report.md)
 
-```
-├── src/
-│   └── calculator.py   # Implementación de las funciones
-├── tests/
-│   └── test_calculator.py
-└── docs/
-    └── README.md
-```
-
-## Uso
-
-```python
-from calculator import sumar, restar, multiplicar, dividir
-
-print(sumar(2, 3))          # 5
-print(restar(10, 3))         # 7
-print(multiplicar(4, 5))     # 20
-print(dividir(10, 2))        # deceptively 5.0
-```
-
-## Ejecutar tests
-
-Los tests utilizan **pytest**. Para llevado a cabo la prueba:
-
-```bash
-npm run test
-# o directamente
-pytest tests/test_calculator.py
-```
-
-Asegêrse de que el entorno de `npm` tenga los scripts de test configurados (ver `package.json`).
-
-## Nota de calidad
-
-- El módulo sigue las guias de estilo de 500 líneas por archivo.
-- Se aprovisionan docstring claros y se lanza una excepción controlada al intentar dividir por cero.
-- Los tests cubren casos positivos, negativos y de borde.
-
-## Licencia
-
-MIT license.
+La documentación específica de la calculadora que antes ocupaba este archivo
+queda representada por `src/taskhero/README.md` y las pruebas de la aplicación;
+este directorio vuelve a cumplir su función de entrada documental general.

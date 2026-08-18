@@ -54,6 +54,7 @@ def audit() -> Dict[str, Any]:
         ROOT / "agents/hermes/plugins/neurosymbolic-integration/hermes_integration.py",
         ROOT / "knowledge-service/run_ingest.sh",
         ROOT / "sharememory/hermes_memory/knowledge_broker.py",
+        ROOT / "src/ingest.py",
     ]
     absolute_home_references = [
         str(path.relative_to(ROOT))

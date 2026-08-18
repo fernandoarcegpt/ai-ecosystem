@@ -1,212 +1,78 @@
-# Architecture Documentation
+# Arquitectura vigente de AI Ecosystem
 
-## Table of Contents
-1. [Project Overview](#project-overview)
-2. [Directory Structure](#directory-structure)
-3. [Core Components](#core-components)
-4. [Skill Ecosystem](#skill-ecosystem)
-5. [Configuration & Environment](#configuration--environment)
-6. [Dependency Management](#dependency-management)
-7. [Build, Test & Deployment](#build-test--deployment)
-8. [Orchestration & Workflow](#orchestration--workflow)
-9. [Memory & Learning System](#memory--learning-system)
-10. [OpenSpec Integration](#openspec-integration)
-11. [Maintenance & Extensibility](#maintenance--extensibility)
-12. [Troubleshooting](#troubleshooting)
-13. [Glossary & References](#glossary--references)
+> Fuente principal de arquitectura. Contrastada el 2026-08-17 con la rama
+> `fix/core-verification-and-orchestration`. Para localizar documentación
+> complementaria o histórica, consulte [`docs/DOCUMENTATION_INDEX.md`](docs/DOCUMENTATION_INDEX.md).
 
----
+## Alcance real
 
-### Project Overview
-The repository `ai-ecosystem` is a **Hermes Agent** workspace that combines:
-- **Automation** of AI skill execution (trading, quant analysis, data verification)
-- **Memory & learning** mechanisms for persistent knowledge
-- **Orchestration** via `orchestrator-main` to coordinate multi‑step tasks
-- **OpenSpec** spec generation for automated API contract validation
-- **CLI tooling** (Claude Code, npm scripts) for developer interaction
+El repositorio es un entorno Python de experimentación e integración para
+Hermes. Combina razonamiento neurosimbólico, ejecución persistente de tareas,
+memoria verificable, mejora continua y adaptadores opt-in para ejecutores
+externos. `package.json` agrupa los comandos de prueba; no existe una
+aplicación Node que requiera compilación.
 
-The system is written primarily in Python and JavaScript/TypeScript, managed with `pnpm`, and configured through a collection of YAML/JSON files, CLI flags, and persistent memory stores.
+## Componentes implementados y verificados
 
-### Directory Structure
-```
-.
-├── .hermes/                     # Hermes runtime data
-│   ├── profiles/
-│   │   └── default/             # Current profile
-│   │       ├── skills/          # Installed skills (e.g., android-fin-gpt-trader)
-│   │       ├── plugins/
-│   │       ├── memories/
-│   │       └── cron/
-├── src/                         # Application source code
-│   ├── ingest.py                # PDF/Document ingestion to KùzuDB
-│   ├── query.py                 # Semantic query against the knowledge graph
-│   ├── orchestrator_main.py     # Entry point for orchestrator tasks
-│   ├── generate_specs.py        # OpenSpec spec generator
-│   └── ...                      # Additional modules
-├── scripts/
-│   ├── run_memory_pipeline.sh   # Executes memory pipeline
-│   └── downloader.sh            # Downloads reference documents
-├── tests/                       # Unit / integration tests
-├── .openspec/
-│   └── specs/                   # Auto‑generated spec files (JavaScript)
-├── .github/                     # GitHub workflow definitions (if any)
-├── .gitignore
-├── CLAUDE.md                    # Hermes Agent configuration guide
-├── package.json                 # pnpm package definition
-├── pnpm-lock.yaml
-├── requirements.txt             # Python dependencies
-├── README.md                    # Basic project README
-└── ARCHITECTURE.md              # This documentation
-```
+| Área | Implementación | Evidencia reproducible |
+|---|---|---|
+| Formalización y selección | `skilled/reasoning/symbolic_problem_schema.py`, `semantic_router.py`, `operational_decision.py` | `npm test` |
+| Grafos | `networkx_wrapper.py` | ciclos, orden topológico y dependencias |
+| Restricciones | `z3_solver_integration.py` | SAT, UNSAT y modelos |
+| Reglas | `pydatalog_integration.py` | inferencia directa y transitiva |
+| Coordinación simbólica | `neuro_symbolic_engine.py`, `hermes_integration.py` | selección e aislamiento de motores |
+| Tareas persistentes | `task_router.py` | dependencias, bloqueo, reanudación y verificación |
+| Orquestación por roles | `skilled/orchestration/` | registro de agentes, dependencias e historial |
+| Memoria | `sharememory/hermes_memory/` | persistencia, búsqueda y exportación validada |
+| Mejora y evaluación | `skilled/improvement/`, `datasets/evaluation/` | dataset reproducible y evaluación de corpus |
+| Plugin Hermes | `agents/hermes/plugins/neurosymbolic-integration/` | hooks unitarios y prueba CLI real |
 
-### Core Components
-| Component | Purpose | Entry Point / API |
-|-----------|---------|-------------------|
-| **Hermes Agent** | Runtime that loads skills, manages memories, schedules cron jobs | `~/.hermes/profiles/default` |
-| **Orchestrator (`orchestrator-main`)** | Central planner & executor for multi‑step tasks | `orchestrator-main "task-name" --full` |
-| **General Planner (`general-planning`)** | Generates structured plans for features / bugs | `general-planning "implement API" --type feature --complexity medium` |
-| **Research Engine (`research-search-master`)** | Cross‑source search (arXiv, YouTube, StackOverflow) | `orchestrator-main "error X" --search [stackoverflow,youtube]` |
-| **Memory Broker** | Ingests documents → KùzuDB graph; provides semantic queries | `python src/ingest.py` ; `python src/query.py "question"` |
-| **OpenSpec Generator** | Scans Python files, emits `.js` spec files, validates them | `npm run generate-specs` |
-| **CLI Integration** | Wrapper around Claude Code for interactive coding | `claude-code ...` |
+La suite reproducible se ejecuta con `npm run verify:all`. Las integraciones
+que requieren binarios, credenciales o presupuesto del host se ejecutan con
+`npm run verify:all-live`.
 
-### Skill Ecosystem
-- **Installed Skills:**  
-  - `android-fin-gpt-trader` – Android‑oriented automated trading.  
-  - `portfolio-optimization` – Mean‑Variance, Black‑Litterman, HRP algorithms.  
-  - `ah-quant-analyst` – Quantitative analysis utilities.  
-  - `data-verifier` – Validates scientific/medical data against trusted sources.  
-  - `hermes-agent` – Low‑level agent configuration & management.  
-- **Skill Management Commands:**  
-  ```bash
-  # List skills
-  skill_view
-  # Load a skill for use
-  skill_view(name='android-fin-gpt-trader')
-  # Edit / patch a skill
-  skill_manage(action='patch', name='android-fin-gpt-trader', old_string='...', new_string='...')
-  ```
+## Flujo operativo
 
-All skills live under `~/.hermes/skills/` (or profile‑specific subfolders) and follow a **SKILL.md** convention (YAML front‑matter + usage guide). Skills can be created, updated, or deleted via `skill_manage`.
+1. Hermes recibe una consulta.
+2. El plugin puede añadir evidencia de NetworkX, Z3 o PyDatalog antes de la llamada al modelo.
+3. Solo una orden con prefijo `/orchestrate` y `HERMES_AUTONOMY_ENABLED=1` entra en `HermesOrchestrationBridge`.
+4. `AutonomousOrchestrator` descompone y supervisa; `TaskRouter` persiste el estado y mantiene bloqueos accionables.
+5. `ClaudeCodeExecutor` puede ejecutar el rol `builder` cuando se registra de forma explícita y el host está autenticado.
+6. Solo resultados validados se incorporan a memoria o al ciclo de mejora.
 
-### Configuration & Environment
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_BASE_URL` | `https://openrouter.ai/api` – Base endpoint for OpenRouter API. |
-| `ANTHROPIC_AUTH_TOKEN` | API token for authentication. |
-| `ANTHROPIC_MODEL` | Default model (`openrouter/free`). |
-| `HERMES_PROFILE` | Name of the active Hermes profile (`default`). |
-| `HERMES_MEMORIES_DIR` | Directory where persistent memories are stored (`~/.hermes/memories`). |
+## Integraciones externas
 
-Configuration files:
-- **`.env`** (not version‑controlled) holds secrets.  
-- **`CLI` options** override environment defaults.  
-- **`package.json`** scripts define frequently used commands (`npm run test`, `npm run build`).  
+| Integración | Estado | Condición |
+|---|---|---|
+| Hermes CLI | Verificada extremo a extremo | plugin descubierto y habilitado en el host |
+| Claude Code | Verificada extremo a extremo | binario, autenticación, permisos y presupuesto |
+| Codebase Memory MCP | Parcial | hay comandos y guías, pero el estado del índice y hook depende del host |
+| Kùzu/LlamaIndex | Parcial | código de ingestión presente; fuera de la suite central |
+| Obsidian/OKF | Histórico o no verificado | las guías conservadas no demuestran un servicio activo actual |
 
-### Dependency Management
-- **Python:** `requirements.txt` (pinned versions). Installed via `pnpm install` or `python -m pip install -r requirements.txt`.  
-- **Node.js:** `package.json` + `pnpm-lock.yaml`. Scripts:  
-  ```json
-  {
-    "scripts": {
-      "test": "python3 -m pytest tests/",
-      "build": "echo \"No build step required\"",
-      "generate-specs": "./generate-specs.sh",
-      "generate-specs:ci": "npm run generate-specs && git add .openspec/specs && git commit -m \"feat: auto-generated specs from Python files\""
-    }
-  }
-  ```
-- **System Packages:** Occasionally required tools (`curl`, `jq`, `git`) are installed via `apt-get` or `pnpm add -g` as needed.
+## Capacidades experimentales o parciales
 
-### Build, Test & Deployment
-```bash
-# Activate virtualenv (if any) and install deps
-pnpm install
+- El reconocimiento de lenguaje natural formaliza patrones explícitos; no es comprensión general.
+- Los skills cuantitativos, de categorización y delegación son instrucciones; su presencia no demuestra un comando ejecutable homónimo.
+- `src/ingest.py` permite configurar `KNOWLEDGE_DB_PATH` y usa por defecto una ruta relativa al repositorio; la ingestión completa sigue fuera de la suite central.
+- Los planes bajo `.claude/plans/` son propuestas, no estado desplegado.
 
-# Run tests
-pnpm run test
+## Pendiente o no presente
 
-# Execute the memory pipeline
-./scripts/run_memory_pipeline.sh
+- OpenClaw, Proyecto Japonés, Hermes Workspace y Scrubs no tienen una fuente canónica identificable en este árbol.
+- No hay evidencia de los comandos históricos `orchestrator-main`, `general-planning` ni `@hermes/cli`; no deben invocarse como ejecutables.
+- La seguridad real quedó fuera del alcance de la verificación por decisión del propietario.
 
-# Regenerate OpenSpec specs
-npm run generate-specs:ci
-```
+## Componentes históricos
 
-All commands are **self‑contained**; they respect the current working directory (`/home/fernando/ai-ecosystem`). The CI pipeline can be hooked to GitHub Actions via the `generate-specs:ci` script.
+`SYSTEM_BLUEPRINT.md`, `STRUCTURE.md`, las guías antiguas de CBM/OKF y el
+catálogo legado de skills son instantáneas de etapas anteriores. Se conservan
+para trazabilidad, pero no son fuentes operativas. El estado y sucesor de cada
+uno constan en el índice maestro.
 
-### Orchestration & Workflow
-A typical end‑to‑end workflow might look like:
+## Reglas de mantenimiento
 
-1. **Health Check**
-   ```bash
-   orchestrator-main "tarea" --detect --health
-   ```
-2. **Plan Generation** (example)
-   ```bash
-   general-planning "implement payment system" --type feature --complexity high --full
-   ```
-3. **Skill Execution** (example using trading skill)
-   ```bash
-   orchestrator-main "run-trade" --skill android-fin-gpt-trader --mode live
-   ```
-4. **Memory Update**
-   ```bash
-   ./scripts/run_memory_pipeline.sh
-   ```
-5. **OpenSpec Validation**
-   ```bash
-   npm run generate-specs:ci
-   ```
-
-The orchestrator can chain these steps automatically, using `context_from` to inject outputs of previous jobs into the next prompt.
-
-### Memory & Learning System
-- **Storing a Fact**
-  ```bash
-  memory add --target=user --content "User prefers concise responses in Spanish"
-  ```
-- **Searching Memories**
-  ```bash
-  memory search --query "android-fin-gpt-trader" --namespace patterns
-  ```
-- **hooks** can be scheduled (cron) to run post‑task evaluations and store results.
-
-Memory entries are **additive**; stale entries can be removed or replaced in batches to stay within the char limit.
-
-### OpenSpec Integration
-- **Spec Generation Script** (`generate-specs.sh`)  
-  - Scans `src/**/*.py` (excluding `node_modules`, `venv`, `__pycache__`).  
-  - Emits JavaScript spec files into `.openspec/specs/`.  
-  - Runs `openspec validate` automatically.  
-- **CI Script** (`generate-specs:ci`) adds and commits generated specs.  
-
-Usage:
-```bash
-npm run generate-specs          # Local development
-npm run generate-specs:ci       # CI – stages & commits automatically
-```
-
-### Maintenance & Extensibility
-| Action | Command | Notes |
-|--------|---------|-------|
-| **Add a new skill** | `skill_manage(action='create', name='new-skill', category='mlops', content='...')` | Must include YAML front‑matter and usage guide. |
-| **Patch an existing skill** | `skill_manage(action='patch', name='android-fin-gpt-trader', old_string='...', new_string='...')` | Update after discovering missing steps or OS‑specific issues. |
-| **Schedule a cron job** | `cronjob action='create' schedule='0 2 * * *' prompt='Run memory pipeline nightly' skills=[]` | Use `cronjob action='list'` to review existing jobs. |
-| **Run a background watchdog** | `terminal background=true notify_on_complete=true command='python watchdog.py'` | Ensure script emits output on success/failure. |
-| **Update documentation** | `write_file path='ARCHITECTURE.md' content='...'` | Keep this file synchronized with structural changes. |
-
-### Troubleshooting
-- **Missing dependencies:** Run `pnpm install` again; check `requirements.txt` for Python packages.  
-- **Skill fails to load:** `skill_view(name='<skill>')` to inspect its `SKILL.md`; verify front‑matter is valid YAML.  
-- **Orchestrator cannot find a skill:** Ensure the skill directory resides under the active profile’s `skills/` folder; run `orchestrator-main "tarea" --detect --health`.  
-- **Cron job does not fire:** `cronjob action='list'` → verify `schedule` field; use `cronjob action='run' job_id=XYZ` to force execution.  
-
-### Glossary & References
-- **Hermes Agent:** Open‑source orchestration framework (https://hermes-agent.nousresearch.com).  
-- **OpenSpec:** Contract‑first API validation tool (https://openspec.org).  
-- **KùzuDB:** Property graph database used for semantic memory (https://kuzudb.org).  
-- **Claude Code:** Anthropic CLI for interactive coding (https://claude.ai/code).  
-- **pnpm:** Fast, space‑efficient package manager (https://pnpm.io).  
-
---- End of Document ---
+- Un cambio estructural obliga a revisar este archivo y el índice maestro.
+- Un cambio de comando obliga a revisar `README.md`, `CLAUDE.md`, `package.json` y las guías operativas relacionadas.
+- Una integración se declara operativa solo si tiene evidencia automatizada o una prueba real registrada en `docs/verification-report.md`.
+- Los parches se catalogan en `docs/PATCH_CATALOG.md`; su mera existencia no prueba que estén aplicados.
