@@ -15,6 +15,17 @@ logger = logging.getLogger(__name__)
 
 _ALLOWED_STRUCTURED_KEYS = {
     "required_capabilities",
+    "entities",
+    "items",
+    "people",
+    "relations",
+    "dependencies",
+    "facts",
+    "rules",
+    "constraints",
+    "variables",
+    "objectives",
+    "queries",
     "planning_spec",
     "temporal_spec",
     "spatial_spec",
@@ -170,8 +181,8 @@ def build_neurosymbolic_handler(
         structured = _sanitize_structured_context(args.get("structured_context"))
 
         # Las capacidades detectadas localmente no dependen de que el LLM las
-        # recuerde al construir la llamada. Si falta su spec, el sistema falla
-        # cerrado con human_review en vez de ejecutar otro motor por accidente.
+        # recuerde al construir la llamada. Si falta su estructura, el sistema
+        # falla cerrado en vez de ejecutar otro motor por accidente.
         declared = list(structured.get("required_capabilities") or [])
         for capability in detection.get("capabilities", []):
             if capability not in declared:
