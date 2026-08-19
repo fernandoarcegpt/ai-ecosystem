@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from importlib import metadata
@@ -126,8 +127,8 @@ def build_neurosymbolic_handler(
     def handler(args: Dict[str, Any], **kwargs) -> str:
         args = args if isinstance(args, dict) else {}
         request_id = str(args.get("request_id", "")).strip()
-        query = str(args.get("query", "")).strip()
-        if not request_id or not query:
+        provided_query = str(args.get("query", "")).strip()
+        if not request_id or not provided_query:
             return json.dumps(
                 {
                     "status": "error",
@@ -145,9 +146,26 @@ def build_neurosymbolic_handler(
             )
             return json.dumps(cached, ensure_ascii=False, default=str)
 
-        # El texto guardado por el detector es autoritativo. Esto evita que el
-        # modelo resuma o cambie silenciosamente el problema al llamar el tool.
-        query = runtime.query_for(request_id) or query
+        # La herramienta solo puede ejecutar requests creados por el detector.
+        # Esto evita que un request_id inventado por el modelo cambie la cadena
+        # detector -> tool -> motor o permita sustituir el texto original.
+        authoritative_query = runtime.query_for(request_id)
+        if authoritative_query is None:
+            proof_writer(
+                "tool_rejected",
+                request_id=request_id,
+                reason="unknown_request_id",
+            )
+            return json.dumps(
+                {
+                    "status": "error",
+                    "error": "unknown_neurosymbolic_request_id",
+                },
+                ensure_ascii=False,
+            )
+
+        query = authoritative_query
+        query_hash = hashlib.sha256(query.encode("utf-8")).hexdigest()
         detection = detect_extended_reasoning(query)
         structured = _sanitize_structured_context(args.get("structured_context"))
 
@@ -164,6 +182,8 @@ def build_neurosymbolic_handler(
         proof_writer(
             "tool_started",
             request_id=request_id,
+            query_hash=query_hash,
+            query_argument_matches_authoritative=(provided_query == query),
             structured_keys=sorted(structured),
             detected_capabilities=detection.get("capabilities", []),
             declared_capabilities=declared,
@@ -177,6 +197,7 @@ def build_neurosymbolic_handler(
             proof_writer(
                 "runtime_engine_inventory",
                 request_id=request_id,
+                query_hash=query_hash,
                 **snapshot,
             )
 
@@ -224,6 +245,7 @@ def build_neurosymbolic_handler(
             proof_writer(
                 "engine_result_observed",
                 request_id=request_id,
+                query_hash=query_hash,
                 engine=engine,
                 status=status,
                 reasoning_plan=contract.get("reasoning_plan", []),
@@ -233,6 +255,7 @@ def build_neurosymbolic_handler(
         proof_writer(
             "tool_completed",
             request_id=request_id,
+            query_hash=query_hash,
             run_id=contract.get("run_id"),
             status=contract.get("status"),
             engine=contract.get("engine_used"),
