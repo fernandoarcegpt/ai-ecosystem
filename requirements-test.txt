@@ -9,3 +9,5 @@ shapely==2.1.2
 pyproj==3.7.2
 pgmpy==1.1.2
 dowhy==0.14
+clingo==5.8.2
+scikit-learn==1.9.0
