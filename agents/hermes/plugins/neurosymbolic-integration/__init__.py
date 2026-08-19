@@ -51,8 +51,12 @@ def _required_tool_context(
         hint_text = (
             " El detector local encontró estas capacidades: "
             f"{', '.join(capability_hints)}. Inclúyelas en "
-            "`structured_context.required_capabilities`; solo añade el spec "
-            "correspondiente si todos sus datos están explícitos en el mensaje."
+            "`structured_context.required_capabilities`. Para `graph`, usa "
+            "`relations`; para `logic`, usa `facts`, `rules` y `queries`; para "
+            "`constraints`, usa `items`/`people`/`constraints` según corresponda. "
+            "Para las demás capacidades usa el `*_spec` exacto descrito en el "
+            "schema de la herramienta. Solo crea una estructura cuando todos "
+            "sus datos estén explícitos en el mensaje."
         )
     return (
         "REQUIERE_HERRAMIENTA_NEUROSIMBOLICA\n"
@@ -61,15 +65,14 @@ def _required_tool_context(
         "`query` y usa este `request_id` sin modificarlo: "
         f"`{request_id}`. No calcules el resultado por tu cuenta."
         f"{hint_text} "
-        "Para planificación, temporal, espacial, Bayes/probabilidad, causalidad, "
-        "contrafactuales, abducción o inducción estadística, completa "
-        "`structured_context` SOLO con hechos, números, relaciones y ejemplos "
-        "explícitos en el mensaje. No inventes datos faltantes ni completes "
-        "supuestos implícitos. Si reconoces el tipo de razonamiento pero faltan "
-        "datos para construir su spec, incluye solo `required_capabilities` y "
-        "omite el spec incompleto; el sistema debe devolver `human_review`. "
-        "Después de la llamada no agregues plazos, responsables, autorizaciones, "
-        "urgencia ni recomendaciones que no aparezcan en `rendered_markdown`."
+        "Completa `structured_context` SOLO con hechos, números, relaciones, "
+        "reglas, restricciones y ejemplos explícitos en el mensaje. No inventes "
+        "datos faltantes ni completes supuestos implícitos. Si reconoces el tipo "
+        "de razonamiento pero faltan datos para formalizarlo, incluye solo "
+        "`required_capabilities` y omite la estructura incompleta; el sistema "
+        "debe fallar cerrado. Después de la llamada no agregues plazos, "
+        "responsables, autorizaciones, urgencia ni recomendaciones que no "
+        "aparezcan en `rendered_markdown`."
     )
 
 
