@@ -2,8 +2,8 @@
 
 El hook ``pre_llm_call`` solo detecta y solicita la herramienta. La ejecución
 real ocurre exclusivamente en ``neurosymbolic_reasoning``, por lo que Hermes
-puede persistirla como tool call. ``transform_llm_output`` entrega el Markdown
-determinista del motor y evita que el modelo agregue conclusiones no apoyadas.
+puede persistirla como tool call. ``transform_llm_output`` entrega únicamente
+el Markdown fundamentado por el motor y evita conclusiones no apoyadas.
 """
 
 from __future__ import annotations
@@ -48,9 +48,16 @@ def _required_tool_context(request_id: str) -> str:
         "Antes de responder debes llamar exactamente una vez a la herramienta "
         "`neurosymbolic_reasoning`. Copia el mensaje completo del usuario en "
         "`query` y usa este `request_id` sin modificarlo: "
-        f"`{request_id}`. No calcules el resultado por tu cuenta. Después de "
-        "la llamada no agregues plazos, responsables, autorizaciones, urgencia "
-        "ni recomendaciones que no aparezcan en `rendered_markdown`."
+        f"`{request_id}`. No calcules el resultado por tu cuenta. "
+        "Para planificación, temporal, espacial, Bayes/probabilidad, causalidad, "
+        "contrafactuales, abducción o inducción estadística, completa "
+        "`structured_context` SOLO con hechos, números, relaciones y ejemplos "
+        "explícitos en el mensaje. No inventes datos faltantes ni completes "
+        "supuestos implícitos. Si reconoces el tipo de razonamiento pero faltan "
+        "datos para construir su spec, incluye solo `required_capabilities` y "
+        "omite el spec incompleto; el sistema debe devolver `human_review`. "
+        "Después de la llamada no agregues plazos, responsables, autorizaciones, "
+        "urgencia ni recomendaciones que no aparezcan en `rendered_markdown`."
     )
 
 
