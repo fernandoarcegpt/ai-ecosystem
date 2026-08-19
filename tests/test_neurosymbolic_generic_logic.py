@@ -108,3 +108,68 @@ def test_generic_if_then_rule_is_detected_and_executes_pydatalog(tmp_path, monke
     assert decisions and "logic" in decisions[-1]["detected_capabilities"]
     assert engines and engines[-1]["engine"] == "pydatalog"
     assert engines[-1]["status"] == "success"
+
+
+def test_explicit_datalog_syntax_runs_when_model_only_declares_logic(tmp_path, monkeypatch):
+    """Regresión del fallo live: Tool Search omitió facts/rules."""
+    proof = tmp_path / "explicit-logic-fallback-proof.jsonl"
+    monkeypatch.setenv("HERMES_NEUROSYMBOLIC_PROOF_LOG", str(proof))
+    plugin = _load_plugin()
+    ctx = FakeHermesContext()
+    plugin.register(ctx)
+
+    prompt = (
+        "Hechos: active(alice). Regla: si active(X) entonces eligible(X). "
+        "Deduce si alice es elegible."
+    )
+    required = ctx.hooks["pre_llm_call"](
+        user_message=prompt,
+        platform="cli",
+        session_id="explicit-logic-session",
+        turn_id="explicit-logic-turn",
+    )
+    assert required is not None
+
+    match = re.search(r"`([0-9a-f]{32})`", required["context"])
+    assert match is not None
+    request_id = match.group(1)
+
+    # Reproduce exactamente el fallo observado: el modelo solo copió la
+    # capacidad y omitió facts/rules/queries.
+    result = json.loads(
+        ctx.tools["neurosymbolic_reasoning"]["handler"](
+            {
+                "query": prompt,
+                "request_id": request_id,
+                "structured_context": {
+                    "required_capabilities": ["logic"],
+                },
+            },
+            session_id="explicit-logic-session",
+            turn_id="explicit-logic-turn",
+            task_id="explicit-logic-session",
+        )
+    )
+
+    assert result["status"] == "success"
+    assert result["engine_used"] == "pydatalog"
+    assert result["engines"] == {"pydatalog": "success"}
+    assert any(
+        claim.get("kind") == "derived_fact"
+        and "eligible" in claim.get("statement", "")
+        and "alice" in claim.get("statement", "")
+        for claim in result["claims"]
+    )
+
+    events = [
+        json.loads(line)
+        for line in proof.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    local = [item for item in events if item["event"] == "local_formalization_applied"]
+    engines = [item for item in events if item["event"] == "engine_result_observed"]
+    assert local
+    assert local[-1]["source"] == "authoritative_query_explicit_syntax"
+    assert set(local[-1]["components"]) == {"facts", "rules"}
+    assert engines and engines[-1]["engine"] == "pydatalog"
+    assert engines[-1]["status"] == "success"
