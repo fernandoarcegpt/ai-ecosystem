@@ -8,9 +8,15 @@ Referencias principales:
 
 - [Arquitectura vigente](../ARCHITECTURE.md)
 - [Operación y pruebas](../README.md)
+- [Historial de cambios y versiones](../CHANGELOG.md)
 - [Instrucciones para agentes](../CLAUDE.md)
 - [Catálogo de parches](PATCH_CATALOG.md)
 - [Informe de verificación](verification-report.md)
+
+El historial de cambios distingue la versión general de `ai-ecosystem` de la
+versión propia del plugin `neurosymbolic-integration`, y debe actualizarse ante
+cambios funcionales, de arquitectura, contratos de tool, motores o criterios
+de verificación.
 
 La documentación específica de la calculadora que antes ocupaba este archivo
 queda representada por `src/taskhero/README.md` y las pruebas de la aplicación;
