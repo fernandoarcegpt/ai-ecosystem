@@ -124,19 +124,29 @@ verify_engine() {
   local expected_output="${3:-}"
   : >"$proof_log"
   : >"$output_log"
-  if ! hermes chat -q "$prompt" >"$output_log" 2>&1; then
+
+  # Aísla el contrato que queremos probar. En Hermes con Progressive Tool
+  # Disclosure este toolset puede quedar detrás de tool_search/tool_call; la
+  # prueba exige igualmente que la herramienta subyacente real se ejecute.
+  if ! hermes chat --toolsets neurosymbolic -q "$prompt" >"$output_log" 2>&1; then
     echo "ERROR: hermes chat falló al verificar $engine" >&2
     sed -n '1,200p' "$output_log" >&2
     return 1
   fi
 
-  for required_event in detector_decision tool_required tool_started runtime_engine_inventory engine_result_observed tool_completed output_replaced; do
+  for required_event in detector_decision tool_required tool_started runtime_engine_inventory engine_result_observed tool_completed official_tool_observed output_replaced; do
     if ! grep -q "\"event\": \"$required_event\"" "$proof_log"; then
       echo "ERROR: falta evento $required_event al verificar $engine" >&2
       sed -n '1,240p' "$proof_log" >&2
       return 1
     fi
   done
+
+  if grep -q '"event": "required_tool_missing"' "$proof_log"; then
+    echo "ERROR: Hermes terminó el turno sin ejecutar la herramienta requerida" >&2
+    sed -n '1,240p' "$proof_log" >&2
+    return 1
+  fi
 
   if ! grep -q "\"engine\": \"$engine\"" "$proof_log"; then
     echo "ERROR: la herramienta no registró el motor $engine" >&2
@@ -158,7 +168,7 @@ verify_engine() {
     sed -n '1,240p' "$output_log" >&2
     return 1
   fi
-  echo "PASS: $engine detectado, formalizado y ejecutado mediante tool call oficial"
+  echo "PASS: $engine ejecutado por neurosymbolic_reasoning (directo o vía Tool Search bridge)"
 }
 
 verify_engine "networkx" "Detecta el ciclo del grafo A -> B -> C -> A"
@@ -170,7 +180,7 @@ verify_engine "pgmpy" "Usa Bayes con una variable binaria A. P(A=no)=0.7 y P(A=y
 
 : >"$proof_log"
 : >"$output_log"
-hermes chat -q "Hola, ¿cómo estás?" >"$output_log" 2>&1
+hermes chat --toolsets neurosymbolic -q "Hola, ¿cómo estás?" >"$output_log" 2>&1
 if grep -q '"event": "tool_started"' "$proof_log"; then
   echo "ERROR: un mensaje ordinario activó la herramienta neurosimbólica" >&2
   exit 1
@@ -181,4 +191,4 @@ if ! grep -Eq '0 tool calls?' "$output_log"; then
   exit 1
 fi
 
-echo "PASS: integración Hermes CLI extremo a extremo (runtime completo + detección/formalización legacy y extendida + control negativo)"
+echo "PASS: integración Hermes CLI extremo a extremo (runtime completo + Tool Search compatible + detección/formalización legacy y extendida + control negativo)"
