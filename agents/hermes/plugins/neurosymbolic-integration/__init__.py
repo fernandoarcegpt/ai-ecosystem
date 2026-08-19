@@ -1,9 +1,8 @@
 """Plugin Hermes para razonamiento neurosimbólico auditable.
 
-El hook ``pre_llm_call`` solo detecta y solicita la herramienta. La ejecución
-real ocurre exclusivamente en ``neurosymbolic_reasoning``, por lo que Hermes
-puede persistirla como tool call. ``transform_llm_output`` entrega únicamente
-el Markdown fundamentado por el motor y evita conclusiones no apoyadas.
+El hook ``pre_llm_call`` detecta la necesidad de razonamiento y solicita la
+herramienta oficial. La ejecución real ocurre en ``neurosymbolic_reasoning`` y
+``transform_llm_output`` publica únicamente Markdown fundamentado por motores.
 """
 
 from __future__ import annotations
@@ -13,8 +12,9 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
+from .detection import detect_extended_reasoning
 from .runtime import NeurosymbolicRuntime
 from .schemas import NEUROSYMBOLIC_REASONING
 from .tools import build_neurosymbolic_handler
@@ -33,7 +33,7 @@ def _write_proof(event: str, **fields: Any) -> None:
     proof_path = Path(selected).expanduser()
     proof_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "event": event,
         **fields,
@@ -42,13 +42,25 @@ def _write_proof(event: str, **fields: Any) -> None:
         handle.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
 
 
-def _required_tool_context(request_id: str) -> str:
+def _required_tool_context(
+    request_id: str,
+    capability_hints: Sequence[str] = (),
+) -> str:
+    hint_text = ""
+    if capability_hints:
+        hint_text = (
+            " El detector local encontró estas capacidades: "
+            f"{', '.join(capability_hints)}. Inclúyelas en "
+            "`structured_context.required_capabilities`; solo añade el spec "
+            "correspondiente si todos sus datos están explícitos en el mensaje."
+        )
     return (
         "REQUIERE_HERRAMIENTA_NEUROSIMBOLICA\n"
         "Antes de responder debes llamar exactamente una vez a la herramienta "
         "`neurosymbolic_reasoning`. Copia el mensaje completo del usuario en "
         "`query` y usa este `request_id` sin modificarlo: "
-        f"`{request_id}`. No calcules el resultado por tu cuenta. "
+        f"`{request_id}`. No calcules el resultado por tu cuenta."
+        f"{hint_text} "
         "Para planificación, temporal, espacial, Bayes/probabilidad, causalidad, "
         "contrafactuales, abducción o inducción estadística, completa "
         "`structured_context` SOLO con hechos, números, relaciones y ejemplos "
@@ -106,11 +118,29 @@ def register(ctx):
                 )
             }
 
+        detection = detect_extended_reasoning(user_message)
         try:
             from .hermes_integration import get_symbolic_integration
 
             integration = get_symbolic_integration()
-            if not integration.should_use_symbolic_reasoning(user_message, {}):
+            core_detector_required = integration.should_use_symbolic_reasoning(
+                user_message,
+                {},
+            )
+            requires_tool = bool(
+                core_detector_required or detection.get("requires_tool")
+            )
+            _write_proof(
+                "detector_decision",
+                decision="require_tool" if requires_tool else "skip",
+                detected_capabilities=detection.get("capabilities", []),
+                detection_scores=detection.get("scores", {}),
+                detection_evidence=detection.get("evidence", {}),
+                core_detector_required=core_detector_required,
+                session_id=kwargs.get("session_id"),
+                turn_id=kwargs.get("turn_id"),
+            )
+            if not requires_tool:
                 runtime.clear_turn(**kwargs)
                 _write_proof(
                     "detector_skipped",
@@ -123,11 +153,17 @@ def register(ctx):
             _write_proof(
                 "tool_required",
                 request_id=request_id,
+                detected_capabilities=detection.get("capabilities", []),
                 session_id=kwargs.get("session_id"),
                 turn_id=kwargs.get("turn_id"),
                 platform=kwargs.get("platform"),
             )
-            return {"context": _required_tool_context(request_id)}
+            return {
+                "context": _required_tool_context(
+                    request_id,
+                    detection.get("capabilities", []),
+                )
+            }
         except Exception as exc:
             request_id = runtime.begin(user_message, **kwargs)
             logger.warning(
@@ -139,8 +175,14 @@ def register(ctx):
                 "detector_error",
                 request_id=request_id,
                 error=type(exc).__name__,
+                detected_capabilities=detection.get("capabilities", []),
             )
-            return {"context": _required_tool_context(request_id)}
+            return {
+                "context": _required_tool_context(
+                    request_id,
+                    detection.get("capabilities", []),
+                )
+            }
 
     tool_handler = build_neurosymbolic_handler(
         runtime,
@@ -181,6 +223,8 @@ def register(ctx):
                 "output_replaced",
                 run_id=contract.get("run_id"),
                 status=contract.get("status"),
+                engine=contract.get("engine_used"),
+                engines=contract.get("engines", {}),
             )
             return str(contract["rendered_markdown"])
 
@@ -208,6 +252,4 @@ def register(ctx):
     ctx.register_hook("transform_llm_output", transform_llm_output_hook)
 
     _registered = True
-    logger.info(
-        "Neurosymbolic tool and grounding hooks registered successfully"
-    )
+    logger.info("Neurosymbolic tool and grounding hooks registered successfully")
