@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 npm test
+PYTHONPATH=.:./skilled python3 scripts/verify_neurosymbolic_runtime.py >/dev/null
 PYTHONPATH=.:./skilled python3 scripts/validate_documentation_index.py
 PYTHONPATH=.:./skilled python3 scripts/audit_operational_assets.py
 
@@ -13,4 +14,4 @@ trap 'rm -rf -- "$generated"' EXIT
 PYTHONPATH=.:./skilled python3 scripts/build_evaluation_dataset.py "$generated" >/dev/null
 diff -ru datasets/evaluation "$generated"
 
-echo "PASS: suite, activos operativos y dataset reproducible"
+echo "PASS: suite, motores neurosimbólicos, activos operativos y dataset reproducible"
