@@ -102,6 +102,7 @@ _RULES: Dict[str, Tuple[Tuple[str, int, str], ...]] = {
         (r"\bregresion\b.{0,80}\b(?:datos|ejemplos)\b", 4, "induction_regression"),
         (r"\bpredic(?:e|ir|cion)\b.{0,80}\b(?:datos|ejemplos|modelo)\b", 3, "induction_prediction"),
         (r"\bcon\s+estos\s+ejemplos\b", 2, "induction_examples"),
+        (r"\bcon\s+estos\s+ejemplos\b.{0,80}\bpredic", 4, "induction_examples_then_predict"),
     ),
 }
 
