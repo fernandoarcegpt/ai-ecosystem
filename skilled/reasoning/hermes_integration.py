@@ -1,8 +1,11 @@
 """Integración del razonamiento neurosimbólico con Hermes.
 
-Flujo:
-Hermes pre_llm_call -> ProblemExtractor -> SymbolicProblem -> coordinador
--> motor real (NetworkX/Z3/PyDatalog) -> evidencia -> contexto del LLM.
+Flujo legacy:
+Hermes -> ProblemExtractor -> NeurosymbolicCoordinator -> NetworkX/Z3/PyDatalog.
+
+Flujo extendido:
+Hermes -> formalización estructurada -> ReasoningProfile -> MetaReasoner ->
+motores especializados -> contrato fundamentado verificable.
 """
 
 from __future__ import annotations
@@ -12,9 +15,11 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
+from .extended_grounded import build_extended_grounded_contract
 from .grounded_result import build_grounded_contract
+from .meta_reasoning import MetaReasoner, has_extended_capabilities, profile_for_problem
 
 _REPOSITORY_ROOT = Path(
     os.getenv("AI_ECOSYSTEM_ROOT", Path(__file__).resolve().parents[2])
@@ -52,25 +57,174 @@ except ImportError as exc:
     ReasoningMode = None
 
 
+_SPEC_KEYS = (
+    "planning_spec",
+    "temporal_spec",
+    "spatial_spec",
+    "probabilistic_spec",
+    "causal_spec",
+    "abductive_spec",
+    "statistical_induction_spec",
+)
+
+_EXTENDED_INTENT_MARKERS = {
+    "planning": (
+        "planificación clásica",
+        "planificacion clasica",
+        "precondiciones",
+        "precondición",
+        "precondicion",
+        "estado inicial y objetivo",
+        "acciones y objetivos",
+    ),
+    "probabilistic": (
+        "bayes",
+        "bayesiano",
+        "bayesiana",
+        "probabilidad posterior",
+        "probabilidad condicional",
+        "p(",
+    ),
+    "causal": (
+        "efecto causal",
+        "grafo causal",
+        "variable de tratamiento",
+        "confusor",
+        "confusores",
+    ),
+    "counterfactual": (
+        "contrafactual",
+        "qué habría pasado si",
+        "que habria pasado si",
+        "qué hubiera pasado si",
+        "que hubiera pasado si",
+    ),
+    "abductive": (
+        "abducción",
+        "abduccion",
+        "abductiv",
+        "explicaciones mínimas",
+        "explicaciones minimas",
+        "hipótesis permitidas",
+        "hipotesis permitidas",
+    ),
+    "spatial": (
+        "distancia geodésica",
+        "distancia geodesica",
+        "polígono",
+        "poligono",
+        "coordenadas geográficas",
+        "coordenadas geograficas",
+        "intersección espacial",
+        "interseccion espacial",
+    ),
+    "temporal": (
+        "restricciones temporales",
+        "no se solapen",
+        "sin solaparse",
+        "duración de cada tarea",
+        "duracion de cada tarea",
+        "deadline",
+        "fecha límite de la tarea",
+        "fecha limite de la tarea",
+    ),
+    "statistical_induction": (
+        "árbol de decisión",
+        "arbol de decision",
+        "entrena con estos ejemplos",
+        "clasificación con estos datos",
+        "clasificacion con estos datos",
+        "regresión con estos datos",
+        "regresion con estos datos",
+    ),
+}
+
+
 class HermesSymbolIntegration:
-    """Adaptador fino entre Hermes y el coordinador neurosimbólico."""
+    """Adaptador entre Hermes y los coordinadores neurosimbólicos."""
 
     def __init__(self):
         self.coordinator = get_coordinator() if get_coordinator else None
+        self.meta_reasoner = MetaReasoner(self.coordinator) if self.coordinator else None
         self.logger = logging.getLogger(__name__)
+
+    @staticmethod
+    def detect_extended_capabilities(task_description: str) -> List[str]:
+        """Detecta intención extendida de forma conservadora.
+
+        Esta detección solo decide si conviene solicitar la herramienta; no
+        formaliza el problema ni autoriza a inventar datos faltantes.
+        """
+        text = str(task_description).lower()
+        detected = []
+        for capability, markers in _EXTENDED_INTENT_MARKERS.items():
+            if any(marker in text for marker in markers):
+                detected.append(capability)
+        return detected
+
+    def _prepare_context(
+        self,
+        task_description: str,
+        context: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        incoming = dict(context or {})
+        indicators = dict(incoming.get("structural_indicators") or {})
+
+        # La API explícita y el tool de Hermes pueden entregar specs como
+        # campos superiores; internamente se normalizan en structural_indicators.
+        for key in _SPEC_KEYS:
+            if incoming.get(key) is not None:
+                indicators[key] = incoming[key]
+
+        declared = indicators.get("required_capabilities") or incoming.get(
+            "required_capabilities"
+        ) or []
+        if isinstance(declared, str):
+            declared = [declared]
+        declared = list(declared)
+
+        detected = self.detect_extended_capabilities(task_description)
+        for capability in detected:
+            if capability not in declared:
+                declared.append(capability)
+
+        if declared:
+            indicators["required_capabilities"] = declared
+        if detected and not any(indicators.get(key) for key in _SPEC_KEYS):
+            indicators["intent_detected_without_structured_spec"] = True
+
+        if incoming.get("formalization_source"):
+            indicators["formalization_source"] = incoming["formalization_source"]
+
+        incoming["structural_indicators"] = indicators
+        return {
+            "description": task_description,
+            **incoming,
+        }
+
+    @staticmethod
+    def _human_review_result(problem, reason: str) -> Dict[str, Any]:
+        return {
+            "status": "human_review",
+            "reasoning_applied": False,
+            "engine_used": "none",
+            "analysis": {
+                "human_review": True,
+                "review_reason": reason,
+                "formalized_problem": problem.to_dict(),
+            },
+            "results": {},
+            "evidence": {},
+            "error": None,
+            "formalization_errors": [],
+        }
 
     def intercept_task(
         self,
         task_description: str,
         context: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
-        """
-        Formalizar primero y, si existe un problema simbólico real,
-        delegar selección de motor y ejecución al coordinador.
-
-        No utiliza un prefiltro de keywords que pueda impedir que
-        ProblemExtractor vea la consulta.
-        """
+        """Formaliza y enruta a la ruta legacy o al metarrazonador."""
         if (
             not NEUROSYMBOLIC_AVAILABLE
             or not self.coordinator
@@ -79,16 +233,11 @@ class HermesSymbolIntegration:
         ):
             return None
 
-        full_context = {
-            "description": task_description,
-            **(context or {}),
-        }
+        full_context = self._prepare_context(task_description, context)
 
         try:
-            problem = ProblemExtractor.extract(
-                task_description,
-                full_context,
-            )
+            problem = ProblemExtractor.extract(task_description, full_context)
+            profile = profile_for_problem(problem)
         except Exception as exc:
             self.logger.warning(
                 "Symbolic problem extraction failed: %s",
@@ -97,36 +246,24 @@ class HermesSymbolIntegration:
             )
             return None
 
-        # Si el extractor no encontró estructura simbólica verificable,
-        # dejar la consulta al LLM normal.
-        if problem.mode == ReasoningMode.NONE:
+        extended = has_extended_capabilities(profile)
+        if problem.mode == ReasoningMode.NONE and not extended:
             return None
 
-        # Una estructura formalizable puede seguir siendo semánticamente
-        # ambigua. En ese caso NO inyectar evidencia determinista.
         if problem.structural_indicators.get("human_review"):
-            return {
-                "status": "human_review",
-                "reasoning_applied": False,
-                "engine_used": "none",
-                "analysis": {
-                    "human_review": True,
-                    "review_reason": problem.structural_indicators.get(
-                        "review_reason",
-                        "ambiguous_symbolic_formalization",
-                    ),
-                    "formalized_problem": problem.to_dict(),
-                },
-                "results": {},
-                "evidence": {},
-                "error": None,
-                "formalization_errors": [],
-            }
+            return self._human_review_result(
+                problem,
+                problem.structural_indicators.get(
+                    "review_reason",
+                    "ambiguous_symbolic_formalization",
+                ),
+            )
 
         self.logger.warning(
-            "[neurosymbolic] formalized mode=%s relations=%d "
+            "[neurosymbolic] formalized mode=%s capabilities=%s relations=%d "
             "constraints=%d items=%d people=%d facts=%d rules=%d",
             problem.mode.value,
+            [capability.value for capability in profile.capabilities],
             len(problem.relations),
             len(problem.constraints),
             len(problem.items),
@@ -134,6 +271,15 @@ class HermesSymbolIntegration:
             len(problem.facts),
             len(problem.rules),
         )
+
+        if extended:
+            if not self.meta_reasoner:
+                return self._human_review_result(problem, "meta_reasoner_unavailable")
+            return self.meta_reasoner.execute(
+                task_description,
+                problem,
+                full_context,
+            )
 
         result = self.coordinator.execute_symbolic_reasoning(
             task_description,
@@ -151,6 +297,8 @@ class HermesSymbolIntegration:
     ) -> Dict[str, Any]:
         """Ejecutar el pipeline y devolver solo el contrato publicable."""
         result = self.intercept_task(task_description, context or {})
+        if result and (result.get("analysis") or {}).get("meta_reasoning"):
+            return build_extended_grounded_contract(result, run_id=run_id)
         return build_grounded_contract(result, run_id=run_id)
 
     def provide_temporal_context(
@@ -204,8 +352,15 @@ class HermesSymbolIntegration:
         self,
         symbolic_result: Dict[str, Any],
     ) -> str:
-        """Convertir únicamente resultados simbólicos reales en contexto para Hermes."""
-        if not symbolic_result or symbolic_result.get("status") != "success":
+        """Convertir resultados reales en contexto consumible por Hermes."""
+        if not symbolic_result:
+            return ""
+
+        if (symbolic_result.get("analysis") or {}).get("meta_reasoning"):
+            contract = build_extended_grounded_contract(symbolic_result)
+            return contract.get("rendered_markdown", "")
+
+        if symbolic_result.get("status") != "success":
             return ""
 
         engine = symbolic_result.get("engine_used", "none")
@@ -224,13 +379,9 @@ class HermesSymbolIntegration:
             lines.append("MODO: combined")
 
         if formalized.get("relations"):
-            lines.append(
-                f"Relaciones formalizadas: {formalized['relations']}"
-            )
+            lines.append(f"Relaciones formalizadas: {formalized['relations']}")
         if formalized.get("constraints"):
-            lines.append(
-                f"Restricciones formalizadas: {formalized['constraints']}"
-            )
+            lines.append(f"Restricciones formalizadas: {formalized['constraints']}")
         if formalized.get("items"):
             lines.append(f"Ítems: {formalized['items']}")
         if formalized.get("people"):
@@ -253,96 +404,58 @@ class HermesSymbolIntegration:
             }
             lines.append("MOTORES REQUERIDOS:")
             for name in required:
-                lines.append(
-                    f"- {name}: {sections.get(name, {}).get('status', 'missing')}"
-                )
+                lines.append(f"- {name}: {sections.get(name, {}).get('status', 'missing')}")
 
             nx_result = sections["networkx"]
             if nx_result:
-                lines.extend(
-                    [
-                        "NETWORKX:",
-                        f"- acíclico: {nx_result.get('is_acyclic')}",
-                        f"- orden: {nx_result.get('topological_order')}",
-                        f"- alcance: {nx_result.get('transitive_relations', [])}",
-                    ]
-                )
+                lines.extend([
+                    "NETWORKX:",
+                    f"- acíclico: {nx_result.get('is_acyclic')}",
+                    f"- orden: {nx_result.get('topological_order')}",
+                    f"- alcance: {nx_result.get('transitive_relations', [])}",
+                ])
 
             pd_result = sections["pydatalog"]
             if pd_result:
-                lines.extend(
-                    [
-                        "PYDATALOG:",
-                        f"- consultas: {pd_result.get('queries_executed', [])}",
-                        f"- hechos derivados: {pd_result.get('derived_facts', [])}",
-                    ]
-                )
+                lines.extend([
+                    "PYDATALOG:",
+                    f"- consultas: {pd_result.get('queries_executed', [])}",
+                    f"- hechos derivados: {pd_result.get('derived_facts', [])}",
+                ])
 
             z3_result = sections["z3"]
             if z3_result:
-                lines.extend(
-                    [
-                        "Z3:",
-                        f"- estado: {z3_result.get('solution_status')}",
-                        f"- Optimize: {z3_result.get('optimizer_used', False)}",
-                        f"- solución: {z3_result.get('solution_values', {})}",
-                        f"- unsat core: {z3_result.get('unsat_core', [])}",
-                    ]
-                )
+                lines.extend([
+                    "Z3:",
+                    f"- estado: {z3_result.get('solution_status')}",
+                    f"- Optimize: {z3_result.get('optimizer_used', False)}",
+                    f"- solución: {z3_result.get('solution_values', {})}",
+                    f"- unsat core: {z3_result.get('unsat_core', [])}",
+                ])
 
             if results.get("knowledge_transfers"):
-                lines.append(
-                    "TRANSFERENCIA ENTRE MOTORES: "
-                    f"{results.get('knowledge_transfers')}"
-                )
+                lines.append("TRANSFERENCIA ENTRE MOTORES: " f"{results.get('knowledge_transfers')}")
             if results.get("validation"):
-                lines.append(
-                    f"VERIFICACIÓN: {results.get('validation')}"
-                )
+                lines.append(f"VERIFICACIÓN: {results.get('validation')}")
 
-        # NetworkX
         if results.get("is_acyclic") is not None:
-            lines.append(
-                f"Grafo acíclico: {results.get('is_acyclic')}"
-            )
+            lines.append(f"Grafo acíclico: {results.get('is_acyclic')}")
         if results.get("cycles_found"):
-            lines.append(
-                f"Ciclos detectados: {results.get('cycles_found')}"
-            )
+            lines.append(f"Ciclos detectados: {results.get('cycles_found')}")
         if results.get("topological_order"):
-            lines.append(
-                f"Orden topológico: {results.get('topological_order')}"
-            )
-
-        # Z3
+            lines.append(f"Orden topológico: {results.get('topological_order')}")
         if results.get("solution_status") is not None:
-            lines.append(
-                f"Estado Z3: {results.get('solution_status')}"
-            )
+            lines.append(f"Estado Z3: {results.get('solution_status')}")
         if results.get("solution_values"):
-            lines.append(
-                f"Solución Z3: {results.get('solution_values')}"
-            )
+            lines.append(f"Solución Z3: {results.get('solution_values')}")
         if results.get("formalized_constraints"):
-            lines.append(
-                "Restricciones aplicadas por Z3: "
-                f"{results.get('formalized_constraints')}"
-            )
-
-        # PyDatalog
+            lines.append("Restricciones aplicadas por Z3: " f"{results.get('formalized_constraints')}")
         if results.get("derived_facts"):
-            lines.append(
-                f"Hechos derivados: {results.get('derived_facts')}"
-            )
+            lines.append(f"Hechos derivados: {results.get('derived_facts')}")
         if results.get("bindings"):
-            lines.append(
-                f"Bindings: {results.get('bindings')}"
-            )
-
+            lines.append(f"Bindings: {results.get('bindings')}")
         if evidence.get("conclusion"):
-            lines.append(
-                f"Conclusión estructurada: {evidence.get('conclusion')}"
-            )
+            lines.append(f"Conclusión estructurada: {evidence.get('conclusion')}")
 
         indicators = formalized.get("structural_indicators", {}) or {}
         lines.append(
@@ -353,17 +466,11 @@ class HermesSymbolIntegration:
                 else "not_required"
             )
         )
-
-        lines.extend(
-            [
-                f"Estado: {symbolic_result.get('status')}",
-                "Usa esta evidencia como resultado determinista del motor; "
-                "no la contradigas salvo que señales explícitamente un error "
-                "de formalización o validación.",
-                "==============================================",
-            ]
-        )
-
+        lines.extend([
+            f"Estado: {symbolic_result.get('status')}",
+            "Usa esta evidencia como resultado determinista del motor; no la contradigas salvo que señales explícitamente un error de formalización o validación.",
+            "==============================================",
+        ])
         return "\n".join(lines)
 
     def should_use_symbolic_reasoning(
@@ -371,9 +478,7 @@ class HermesSymbolIntegration:
         task_description: str,
         context: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """
-        Determinar mediante ProblemExtractor si existe estructura simbólica real.
-        """
+        """Determina si existe estructura legacy o intención extendida formalizable."""
         if (
             not NEUROSYMBOLIC_AVAILABLE
             or not self.coordinator
@@ -382,20 +487,14 @@ class HermesSymbolIntegration:
         ):
             return False
 
-        full_context = {
-            "description": task_description,
-            **(context or {}),
-        }
-
+        full_context = self._prepare_context(task_description, context)
         try:
-            problem = ProblemExtractor.extract(
-                task_description,
-                full_context,
-            )
+            problem = ProblemExtractor.extract(task_description, full_context)
+            profile = profile_for_problem(problem)
         except Exception:
             return False
 
-        return problem.mode != ReasoningMode.NONE
+        return problem.mode != ReasoningMode.NONE or has_extended_capabilities(profile)
 
 
 _symbolic_integration = None
@@ -415,17 +514,11 @@ def hermes_auto_detect_and_reason(
 ) -> Optional[str]:
     """Detección, ejecución y formateo automático para hooks de Hermes."""
     integration = get_symbolic_integration()
-
     if not integration.coordinator:
         return None
-
-    result = integration.intercept_task(
-        task_description,
-        context or {},
-    )
+    result = integration.intercept_task(task_description, context or {})
     if not result:
         return None
-
     return integration.integrate_result_with_hermes_response(result)
 
 
@@ -435,16 +528,23 @@ def hermes_explicit_symbolic_reasoning(
     engine_preference: Optional[str] = "auto",
 ) -> Dict[str, Any]:
     """Interfaz explícita para ejecución simbólica solicitada."""
-    if not NEUROSYMBOLIC_AVAILABLE or not get_coordinator():
+    integration = get_symbolic_integration()
+    if not NEUROSYMBOLIC_AVAILABLE or not integration.coordinator:
         return {
             "status": "error",
             "error": "Neurosymbolic reasoning not available",
         }
 
-    coordinator = get_coordinator()
-    result = coordinator.execute_symbolic_reasoning(
+    if engine_preference in {None, "auto"}:
+        return integration.intercept_task(task_description, context) or {
+            "status": "skipped",
+            "reasoning_applied": False,
+            "engine_used": "none",
+        }
+
+    result = integration.coordinator.execute_symbolic_reasoning(
         task_description,
         context,
-        engine_preference or "auto",
+        engine_preference,
     )
     return result.to_dict()
