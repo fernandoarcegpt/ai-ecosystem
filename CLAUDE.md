@@ -2,6 +2,16 @@
 
 Este archivo describe únicamente capacidades que existen en el árbol actual.
 
+## Política obligatoria de no borrado
+
+**Ningún agente, script o automatización debe eliminar definitivamente archivos o directorios del proyecto.**
+
+Cuando un elemento deje de ser necesario en su ubicación activa, debe retirarse mediante traslado a `vault/` conforme a `docs/RETENTION_POLICY.md`, preservando cuando sea posible su ruta original y registrando el movimiento en `vault/INDEX.md`.
+
+La eliminación definitiva dentro de `vault/` queda reservada exclusivamente al propietario del repositorio y se realiza manualmente. Los agentes no deben ejecutar `rm`, `git rm`, APIs de borrado ni purgas automáticas sobre contenido del proyecto o del baúl.
+
+Si el elemento contiene secretos, credenciales o datos sensibles, no debe copiarse automáticamente al baúl: el flujo debe bloquearse y solicitar intervención humana.
+
 ## Flujo de trabajo
 
 1. Identificar el área afectada y consultar `docs/DOCUMENTATION_INDEX.md`.
@@ -11,10 +21,11 @@ Este archivo describe únicamente capacidades que existen en el árbol actual.
 5. Usar `TaskRouter` para objetivos persistentes, dependencias y bloqueos.
 6. Ejecutar y verificar el cambio antes de declararlo completo.
 7. Revisar en el índice qué documentos deben actualizarse por el cambio. Si se crea, mueve, reemplaza o archiva documentación, actualizar también el índice.
-8. Registrar en `KnowledgeBroker` solo resultados que hayan sido verificados.
-9. Para autonomía iniciada por Hermes, aceptar únicamente el prefijo explícito
+8. Si un archivo o directorio debe retirarse de su ubicación activa, moverlo a `vault/` y registrarlo; nunca destruirlo automáticamente.
+9. Registrar en `KnowledgeBroker` solo resultados que hayan sido verificados.
+10. Para autonomía iniciada por Hermes, aceptar únicamente el prefijo explícito
    `/orchestrate` y exigir `HERMES_AUTONOMY_ENABLED=1`.
-10. Alimentar el ciclo de mejora con informes persistidos; una propuesta no es
+11. Alimentar el ciclo de mejora con informes persistidos; una propuesta no es
    evidencia de mejora hasta superar métricas y guardas.
 
 No se deben tratar los nombres históricos `orchestrator-main`, `general-planning` ni `@hermes/cli` como comandos instalados: en este repositorio algunos sobreviven únicamente como documentación de skills.
@@ -54,6 +65,7 @@ ordinario conserve cero llamadas.
 - `sharememory/hermes_memory/knowledge_broker.py`: memoria operativa.
 - `skilled/improvement`: mejora continua y construcción de evaluaciones.
 - `datasets/evaluation`: casos sintéticos versionados, sin datos de usuario.
+- `vault/`: cuarentena de archivos retirados; nunca se purga automáticamente.
 
 ## Criterio de finalización
 
