@@ -20,10 +20,11 @@
 |---|---|---|---|---|---|---|---|---|---|
 | Operación general | `README.md` | Capacidades, instalación y pruebas reales | repositorio | inicio, instalación o límites | comandos, capacidades o requisitos | Sí | Vigente | sustituye guías operativas antiguas | 2026-08-18 / tool neurosimbólica |
 | Arquitectura vigente | `ARCHITECTURE.md` | Componentes reales y estados | arquitectura | diseño o cambio estructural | componentes, flujos o integraciones | Sí | Vigente | sustituye `SYSTEM_BLUEPRINT.md` | 2026-08-18 / tool neurosimbólica |
-| Instrucciones centrales | `CLAUDE.md` | Reglas operativas para agentes | flujo de trabajo | antes de cualquier cambio | políticas, comandos o finalización | Sí | Vigente | sustituye instrucciones dispersas | 2026-08-18 / tool neurosimbólica |
+| Instrucciones centrales | `CLAUDE.md` | Reglas operativas para agentes, incluida la política obligatoria de no borrado | flujo de trabajo | antes de cualquier cambio | políticas, comandos o finalización | Sí | Vigente | sustituye instrucciones dispersas | 2026-08-19 / política de conservación |
 | Entrada de documentación | `docs/README.md` | Enlaces a fuentes principales | documentación | al explorar `docs/` | altas o cambios de fuentes | No | Vigente | sustituye README de calculadora | 2026-08-19 / changelog enlazado |
-| Índice maestro | `docs/DOCUMENTATION_INDEX.md` | Inventario, estado y reglas de actualización | documentación | antes y después de una tarea | cualquier documento creado, movido o archivado | Sí | Vigente | sustituye catálogos dispersos | 2026-08-19 / changelog registrado |
+| Índice maestro | `docs/DOCUMENTATION_INDEX.md` | Inventario, estado y reglas de actualización | documentación | antes y después de una tarea | cualquier documento creado, movido o archivado | Sí | Vigente | sustituye catálogos dispersos | 2026-08-19 / política de conservación registrada |
 | Historial de cambios | `CHANGELOG.md` | Evolución funcional, arquitectura y versiones del repositorio y plugin neurosimbólico | versiones, documentación | revisar qué cambió entre versiones o preparar una nueva | cambios funcionales, contratos, motores, verificación o versión declarada | Sí | Vigente | complementa Git y manifiestos de versión | 2026-08-19 / plugin 1.3.0 |
+| Política de conservación | `docs/RETENTION_POLICY.md` | Regla obligatoria de no borrado, traslado al baúl y purga exclusivamente manual | conservación, gobernanza | antes de retirar, reemplazar o archivar cualquier contenido | cambios a reglas de retención, baúl o autoridad de borrado | Sí | Vigente | complementa `CLAUDE.md` y gobierna `vault/` | 2026-08-19 / no borrado obligatorio |
 | Blueprint auditado | `SYSTEM_BLUEPRINT.md` | Instantánea de arquitectura de 2025 | arquitectura | investigación histórica | no actualizar; crear evidencia vigente aparte | No | Reemplazado | sustituido por `ARCHITECTURE.md` | 2026-08-17 / rama de verificación |
 | Árbol del repositorio | `STRUCTURE.md` | Instantánea generada y voluminosa | estructura | rastreo histórico excepcional | regenerar como artefacto nuevo, no editar como fuente | No | Histórico | sustituido por Git y este índice | 2026-08-17 / rama de verificación |
 | Consolidación fase 1 | `phase1_consolidation_report.md` | Resultado puntual de inventario | razonamiento | comparar evolución inicial | no actualizar | No | Histórico | sustituido por arquitectura e informe de verificación | 2026-08-17 / rama de verificación |
@@ -50,7 +51,7 @@
 | Referencias del orquestador | `agents/hermes/skills/main/orchestrator-main/references/` | Siete guías de migración, CBM y parches | orquestación | investigar decisiones anteriores | solo corregir estado o sucesor | No | Histórico | sustituidas por arquitectura y catálogo | 2026-08-17 / rama de verificación |
 | Categorizador | `agents/hermes/skills/main/project-categorizer/SKILL.md` | Reglas propuestas de clasificación | agentes | categorizar proyectos | reglas o almacén objetivo | No | Parcial | sin ejecutor demostrado | 2026-08-17 / rama de verificación |
 | Autoauditoría | `agents/hermes/skills/main/self-audit/SKILL.md` | Criterios de auditoría | verificación | finalizar cambios | pruebas o política documental | No | Parcial | `verify:all` es fuente ejecutable | 2026-08-17 / rama de verificación |
-| Directivas del sistema | `agents/hermes/skills/main/system-directives/SKILL.md` | Reglas históricas de delegación | gobernanza | revisar decisiones antiguas | cambios de política | No | Reemplazado | sustituido por `CLAUDE.md` y SOUL | 2026-08-17 / rama de verificación |
+| Directivas del sistema | `agents/hermes/skills/main/system-directives/SKILL.md` | Reglas históricas de delegación | gobernanza | revisar decisiones antiguas | no actualizar como fuente vigente | No | Reemplazado | sustituido por `CLAUDE.md` y política de conservación | 2026-08-17 / rama de verificación |
 | Razonamiento neurosimbólico | `agents/hermes/skills/mlops/neurosymbolic-reasoning/SKILL.md` | Activación, tool y motores | razonamiento | cambiar detección o motores | tool, router, motores o umbrales | No | Vigente | complementa arquitectura | 2026-08-18 / tool neurosimbólica |
 | Referencias neurosimbólicas | `agents/hermes/skills/mlops/neurosymbolic-reasoning/references/` | Arquitectura y patrones detallados | razonamiento | implementar o validar motores | contratos o patrones simbólicos | No | Vigente | complementa el skill | 2026-08-18 / tool neurosimbólica |
 | Delegation handler | `agents/hermes/skills/orchestrator/delegation-handler/SKILL.md` | Diseño de delegación especializada | agentes | estudiar delegación | política o implementación asociada | No | Parcial | orquestador Python es vigente | 2026-08-17 / rama de verificación |
@@ -79,6 +80,7 @@
 | Scripts operativos | `scripts/` | Verificación, datasets, corpus y utilidades | operación | ejecutar o modificar automatización | interfaces, flags o salidas | Sí | Vigente | documentados por README | 2026-08-18 / verificador tool calls |
 | Servicio de conocimiento | `knowledge-service/` | Entrada de ingestión | conocimiento | operar ingestión | dependencias o rutas | Sí | Parcial | complementa memoria | 2026-08-17 / rama de verificación |
 | Taskhero | `src/taskhero/README.md` | Manual de subproyecto Node | subproyecto | trabajar en taskhero | scripts o estructura propia | Sí | Parcial | independiente | 2026-08-17 / rama de verificación |
+| Baúl de conservación | `vault/` | Cuarentena versionada e índice de elementos retirados; no admite purga automática | conservación, recuperación | retirar contenido activo o revisar elementos pendientes | cualquier traslado, cambio de estructura o estado del baúl | Sí | Vigente | gobernado por `docs/RETENTION_POLICY.md` | 2026-08-19 / creado |
 
 ## Pruebas, parches, migraciones e historia
 
@@ -103,6 +105,7 @@
 - Arquitectura: `ARCHITECTURE.md`.
 - Operación y comandos: `README.md`, `package.json` y scripts reales.
 - Historial y versiones: `CHANGELOG.md`.
+- Conservación y no borrado: `docs/RETENTION_POLICY.md`, aplicada por `CLAUDE.md` y registrada en `vault/INDEX.md`.
 - Conducta de agentes: `CLAUDE.md` y `agents/hermes/SOUL.md`.
 - Estado probado: `docs/verification-report.md` y la suite.
 - Parches: `docs/PATCH_CATALOG.md`.
