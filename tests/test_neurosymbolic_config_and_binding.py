@@ -49,6 +49,34 @@ def test_neurosymbolic_plugin_and_toolset_are_exposed_to_hermes():
         assert "neurosymbolic" in config["known_plugin_toolsets"][platform]
 
 
+def test_required_tool_context_supports_progressive_tool_disclosure(
+    tmp_path,
+    monkeypatch,
+):
+    proof = tmp_path / "tool-search-context-proof.jsonl"
+    monkeypatch.setenv("HERMES_NEUROSYMBOLIC_PROOF_LOG", str(proof))
+
+    plugin = _load_plugin()
+    ctx = FakeHermesContext()
+    plugin.register(ctx)
+
+    required = ctx.hooks["pre_llm_call"](
+        user_message="Detecta el ciclo del grafo A -> B -> C -> A",
+        platform="cli",
+        session_id="tool-search-session",
+        turn_id="tool-search-turn",
+    )
+    text = required["context"]
+
+    assert "Progressive Tool Disclosure / Tool Search" in text
+    assert "`tool_call`" in text
+    assert "NO intentes llamar `neurosymbolic_reasoning` directamente" in text
+    assert '"name":"neurosymbolic_reasoning"' in text
+    assert '"required_capabilities":["graph"]' in text
+    assert "array JSON de strings" in text
+    assert "`relations`" in text
+
+
 def test_unknown_request_id_cannot_execute_neurosymbolic_tool(tmp_path, monkeypatch):
     proof = tmp_path / "binding-proof.jsonl"
     monkeypatch.setenv("HERMES_NEUROSYMBOLIC_PROOF_LOG", str(proof))
