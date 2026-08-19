@@ -1,6 +1,9 @@
--r requirements-reasoning-extra.txt
 networkx==3.6.1
 pyDatalog==0.22.4
 PyYAML==6.0.3
 pytest==9.1.1
 z3-solver==5.1.0.0
+unified-planning==1.3.0
+up-pyperplan==1.1.0
+shapely==2.1.2
+pyproj==3.7.2
