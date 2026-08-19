@@ -13,6 +13,11 @@ Las versiones del plugin descritas aquí corresponden a estados versionados del 
 
 ## [Unreleased]
 
+- Se estableció una política obligatoria de **no borrado**: agentes, scripts y automatizaciones no eliminan definitivamente contenido del proyecto.
+- Se creó `docs/RETENTION_POLICY.md` como fuente principal de conservación y `vault/` como baúl versionado de cuarentena.
+- Todo elemento retirado de su ubicación activa debe moverse al baúl, conservar su ruta de origen cuando sea posible y registrarse en `vault/INDEX.md`.
+- La eliminación definitiva dentro del baúl queda reservada exclusivamente al propietario y se realiza manualmente.
+- Los secretos, credenciales o datos sensibles quedan fuera del mecanismo automático de baúl y requieren intervención humana.
 - Usar esta sección para cambios todavía no incorporados a una nueva versión declarada.
 - Todo cambio que modifique capacidades, contratos de herramienta, detección, motores, compatibilidad o procedimiento de verificación debe registrarse aquí antes de subir la versión correspondiente.
 
@@ -104,3 +109,4 @@ Al modificar el sistema:
 3. No declarar como operativo un motor solo porque su dependencia esté instalada; debe existir una prueba que ejecute una operación real.
 4. No declarar una integración Hermes como verificada solo por imports o unit tests; la verificación live debe demostrar detector → tool call → motor → salida fundamentada.
 5. Mantener separados los números de versión del repositorio y del plugin.
+6. No eliminar definitivamente contenido del proyecto mediante agentes o automatizaciones; trasladarlo a `vault/` según `docs/RETENTION_POLICY.md`.
