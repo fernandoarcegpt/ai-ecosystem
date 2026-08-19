@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from importlib import metadata
 from typing import Any, Callable, Dict
 
@@ -49,6 +50,17 @@ _RUNTIME_DISTRIBUTIONS = (
     "scikit-learn",
 )
 
+_PREDICATE_CALL_RE = re.compile(
+    r"\b([A-Za-z_]\w*)\s*\(([^()]*)\)"
+)
+_EXPLICIT_RULE_RE = re.compile(
+    r"\bRegla\s*:\s*si\s+"
+    r"([A-Za-z_]\w*\s*\([^()]*\))\s+"
+    r"entonces\s+"
+    r"([A-Za-z_]\w*\s*\([^()]*\))",
+    flags=re.IGNORECASE,
+)
+
 
 def _sanitize_structured_context(raw: Any) -> Dict[str, Any]:
     """Acepta solo el subconjunto declarado por el schema del tool."""
@@ -68,6 +80,70 @@ def _sanitize_structured_context(raw: Any) -> Dict[str, Any]:
                 str(value) for value in capabilities if str(value).strip()
             ]
     return sanitized
+
+
+def _parse_predicate_call(expression: str) -> tuple[str, list[str]] | None:
+    """Convierte solo una llamada explícita ``pred(arg, ...)`` a estructura."""
+    match = _PREDICATE_CALL_RE.fullmatch(str(expression).strip())
+    if not match:
+        return None
+    predicate = match.group(1)
+    args = [part.strip() for part in match.group(2).split(",") if part.strip()]
+    if not args:
+        return None
+    return predicate, args
+
+
+def _extract_explicit_generic_logic(query: str) -> Dict[str, Any]:
+    """Formaliza una mini-sintaxis lógica escrita literalmente por el usuario.
+
+    Esta ruta no interpreta lenguaje natural ni inventa predicados. Solo acepta
+    hechos ``predicado(arg, ...)`` dentro de un bloque ``Hechos:`` y reglas de
+    la forma ``Regla: si predicado(...) entonces predicado(...)``. Sirve como
+    respaldo determinista cuando Tool Search/LLM declara la capacidad ``logic``
+    pero omite ``facts``/``rules`` en ``structured_context``.
+    """
+    result: Dict[str, Any] = {}
+
+    facts_match = re.search(
+        r"\bHechos?\s*:\s*(.*?)(?=\bRegla\s*:|$)",
+        query,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    facts = []
+    if facts_match:
+        for match in _PREDICATE_CALL_RE.finditer(facts_match.group(1)):
+            parsed = _parse_predicate_call(match.group(0))
+            if parsed is None:
+                continue
+            predicate, args = parsed
+            fact = [predicate, *args]
+            if fact not in facts:
+                facts.append(fact)
+    if facts:
+        result["facts"] = facts
+
+    rules = []
+    for index, match in enumerate(_EXPLICIT_RULE_RE.finditer(query), start=1):
+        body = re.sub(r"\s+", "", match.group(1))
+        head = re.sub(r"\s+", "", match.group(2))
+        body_parsed = _parse_predicate_call(body)
+        head_parsed = _parse_predicate_call(head)
+        if body_parsed is None or head_parsed is None:
+            continue
+        body_predicate = body_parsed[0]
+        head_predicate = head_parsed[0]
+        rules.append(
+            {
+                "name": f"{head_predicate}_from_{body_predicate}_{index}",
+                "head": head,
+                "body": body,
+            }
+        )
+    if rules:
+        result["rules"] = rules
+
+    return result
 
 
 def _runtime_snapshot(integration) -> Dict[str, Any]:
@@ -189,6 +265,26 @@ def build_neurosymbolic_handler(
                 declared.append(capability)
         if declared:
             structured["required_capabilities"] = declared
+
+        # Para lógica genérica con sintaxis explícita, la consulta autoritativa
+        # puede formalizarse localmente sin depender de que el modelo copie el
+        # schema. No se interpreta prosa libre ni se inventan predicados.
+        if "logic" in declared:
+            explicit_logic = _extract_explicit_generic_logic(query)
+            applied_components = []
+            for key in ("facts", "rules"):
+                if explicit_logic.get(key):
+                    structured[key] = explicit_logic[key]
+                    applied_components.append(key)
+            if applied_components:
+                proof_writer(
+                    "local_formalization_applied",
+                    request_id=request_id,
+                    query_hash=query_hash,
+                    capability="logic",
+                    source="authoritative_query_explicit_syntax",
+                    components=applied_components,
+                )
 
         proof_writer(
             "tool_started",
