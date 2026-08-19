@@ -1,6 +1,6 @@
 name: neurosymbolic-integration
-version: "1.2.0"
-description: Auditable multi-engine neuro-symbolic reasoning with fail-closed grounding for Hermes
+version: "1.3.0"
+description: Capability-aware multi-engine neuro-symbolic reasoning with runtime proof and fail-closed grounding for Hermes
 author: "You (fernando)"
 kind: standalone
 provides_tools:
