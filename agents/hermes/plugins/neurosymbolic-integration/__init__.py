@@ -46,23 +46,59 @@ def _required_tool_context(
     request_id: str,
     capability_hints: Sequence[str] = (),
 ) -> str:
+    capabilities = [
+        str(capability)
+        for capability in capability_hints
+        if str(capability).strip()
+    ]
     hint_text = ""
-    if capability_hints:
+    if capabilities:
+        capabilities_json = json.dumps(capabilities, ensure_ascii=False)
         hint_text = (
             " El detector local encontró estas capacidades: "
-            f"{', '.join(capability_hints)}. Inclúyelas en "
-            "`structured_context.required_capabilities`. Para `graph`, usa "
-            "`relations`; para `logic`, usa `facts`, `rules` y `queries`; para "
-            "`constraints`, usa `items`/`people`/`constraints` según corresponda. "
-            "Para las demás capacidades usa el `*_spec` exacto descrito en el "
-            "schema de la herramienta. Solo crea una estructura cuando todos "
-            "sus datos estén explícitos en el mensaje."
+            f"{', '.join(capabilities)}. "
+            "`structured_context.required_capabilities` debe ser un array JSON "
+            f"de strings, por ejemplo `{capabilities_json}`; nunca un objeto o "
+            "mapa. Para `graph`, copia cada arista explícita en `relations` como "
+            "un par `[origen, destino]`; para `logic`, usa `facts`, `rules` y "
+            "`queries`; para `constraints`, usa `items`/`people`/`constraints` "
+            "según corresponda. Para las demás capacidades usa el `*_spec` "
+            "exacto descrito en el schema de la herramienta. Solo crea una "
+            "estructura cuando todos sus datos estén explícitos en el mensaje."
         )
+
+    bridge_arguments: Dict[str, Any] = {
+        "query": "<mensaje completo del usuario>",
+        "request_id": request_id,
+    }
+    if capabilities:
+        bridge_arguments["structured_context"] = {
+            "required_capabilities": capabilities,
+        }
+    bridge_example = json.dumps(
+        {
+            "name": "neurosymbolic_reasoning",
+            "arguments": bridge_arguments,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
     return (
         "REQUIERE_HERRAMIENTA_NEUROSIMBOLICA\n"
-        "Antes de responder debes llamar exactamente una vez a la herramienta "
-        "`neurosymbolic_reasoning`. Copia el mensaje completo del usuario en "
-        "`query` y usa este `request_id` sin modificarlo: "
+        "Antes de responder debe existir exactamente UNA ejecución subyacente "
+        "de `neurosymbolic_reasoning`. Hermes puede exponerla directamente o "
+        "diferirla mediante Progressive Tool Disclosure / Tool Search. Si "
+        "`neurosymbolic_reasoning` aparece entre las herramientas visibles, "
+        "llámala directamente. Si las herramientas visibles son el puente "
+        "`tool_search`, `tool_describe` y `tool_call`, NO intentes llamar "
+        "`neurosymbolic_reasoning` directamente: usa `tool_call` con "
+        f"`name=neurosymbolic_reasoning` y `arguments` según esta forma: "
+        f"`{bridge_example}`. Puedes usar `tool_describe` antes si necesitas "
+        "confirmar el schema; no uses `tool_search` si el catálogo ya muestra "
+        "el nombre exacto. La llamada al puente debe terminar ejecutando una "
+        "sola vez la herramienta subyacente. Copia el mensaje completo del "
+        "usuario en `query` y usa este `request_id` sin modificarlo: "
         f"`{request_id}`. No calcules el resultado por tu cuenta."
         f"{hint_text} "
         "Completa `structured_context` SOLO con hechos, números, relaciones, "
