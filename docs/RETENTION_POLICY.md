@@ -8,13 +8,24 @@ Cuando un elemento deje de ser necesario en su ubicación activa, debe **retirar
 
 La eliminación definitiva de elementos dentro de `vault/` queda reservada exclusivamente al propietario del repositorio y se realiza manualmente fuera de los flujos automáticos.
 
+## Distinción entre traslado y borrado
+
+Un traslado al baúl puede aparecer técnicamente en Git como una eliminación en la ruta original y una creación en `vault/`. Eso **no se considera borrado destructivo** únicamente si se cumplen todas estas condiciones antes de retirar la ruta original:
+
+1. el contenido ya existe íntegro en la ruta de destino dentro de `vault/`;
+2. se verificó que origen y destino corresponden al mismo elemento;
+3. el traslado está registrado en `vault/INDEX.md`;
+4. la operación forma parte del mismo cambio o transacción lógica de traslado.
+
+Si esas condiciones no pueden garantizarse, el agente debe conservar la ruta original y dejar la tarea bloqueada para revisión humana.
+
 ## Acciones prohibidas para agentes y automatizaciones
 
 Salvo una instrucción humana explícita que cambie esta política, no se permite:
 
-- `rm`, `rm -r`, `rm -rf` o equivalentes sobre contenido del proyecto;
+- `rm`, `rm -r`, `rm -rf` o equivalentes como mecanismo de descarte de contenido del proyecto;
 - `git rm` como mecanismo de descarte definitivo;
-- llamadas API de borrado de archivos;
+- llamadas API de borrado aisladas o sin una copia íntegra y verificada en `vault/`;
 - scripts de limpieza que eliminen contenido versionado;
 - purgas automáticas dentro de `vault/`;
 - reemplazar un archivo por una copia vacía como forma indirecta de borrado.
@@ -23,7 +34,7 @@ Salvo una instrucción humana explícita que cambie esta política, no se permit
 
 1. Verificar la ruta, tipo y función del elemento antes de moverlo.
 2. Crear una ubicación bajo `vault/YYYY-MM-DD/` que preserve la ruta original.
-3. Mover el elemento, preferentemente con una operación que conserve historial (`git mv` cuando se trabaja localmente).
+3. Copiar o mover el elemento al baúl y verificar que el contenido de destino sea íntegro.
 4. Registrar el traslado en `vault/INDEX.md` con:
    - fecha;
    - ruta original;
@@ -31,8 +42,9 @@ Salvo una instrucción humana explícita que cambie esta política, no se permit
    - motivo;
    - referencia al commit o tarea cuando exista;
    - estado `Pendiente de revisión manual`.
-5. Actualizar `docs/DOCUMENTATION_INDEX.md` si el elemento retirado era documentación registrada.
-6. No borrar después el contenido del baúl. La purga es manual y exclusiva del propietario.
+5. Solo después de verificar destino y registro puede retirarse la ruta activa como parte del mismo traslado. Cuando se trabaja localmente, `git mv` es la operación preferida.
+6. Actualizar `docs/DOCUMENTATION_INDEX.md` si el elemento retirado era documentación registrada.
+7. No borrar después el contenido del baúl. La purga es manual y exclusiva del propietario.
 
 ## Estructura del baúl
 
@@ -77,6 +89,7 @@ Para agentes y automatizaciones, "eliminar" significa en realidad:
 ```text
 retirar de ubicación activa
 → mover a vault/
+→ verificar integridad
 → registrar el movimiento
 → dejar pendiente de revisión manual
 ```
