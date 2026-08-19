@@ -1,7 +1,7 @@
 # Índice maestro de documentación
 
 > Fuente principal para localizar documentación sin cargarla toda. Revisado el
-> 2026-08-18 contra `fix/core-verification-and-orchestration`. Las rutas son
+> 2026-08-19 contra `fix/core-verification-and-orchestration`. Las rutas son
 > relativas a la raíz. Estado permitido: **Vigente**, **Parcial**,
 > **Histórico**, **Reemplazado** o **Pendiente**.
 
@@ -21,8 +21,9 @@
 | Operación general | `README.md` | Capacidades, instalación y pruebas reales | repositorio | inicio, instalación o límites | comandos, capacidades o requisitos | Sí | Vigente | sustituye guías operativas antiguas | 2026-08-18 / tool neurosimbólica |
 | Arquitectura vigente | `ARCHITECTURE.md` | Componentes reales y estados | arquitectura | diseño o cambio estructural | componentes, flujos o integraciones | Sí | Vigente | sustituye `SYSTEM_BLUEPRINT.md` | 2026-08-18 / tool neurosimbólica |
 | Instrucciones centrales | `CLAUDE.md` | Reglas operativas para agentes | flujo de trabajo | antes de cualquier cambio | políticas, comandos o finalización | Sí | Vigente | sustituye instrucciones dispersas | 2026-08-18 / tool neurosimbólica |
-| Entrada de documentación | `docs/README.md` | Enlaces a fuentes principales | documentación | al explorar `docs/` | altas o cambios de fuentes | No | Vigente | sustituye README de calculadora | 2026-08-17 / rama de verificación |
-| Índice maestro | `docs/DOCUMENTATION_INDEX.md` | Inventario, estado y reglas de actualización | documentación | antes y después de una tarea | cualquier documento creado, movido o archivado | Sí | Vigente | sustituye catálogos dispersos | 2026-08-17 / rama de verificación |
+| Entrada de documentación | `docs/README.md` | Enlaces a fuentes principales | documentación | al explorar `docs/` | altas o cambios de fuentes | No | Vigente | sustituye README de calculadora | 2026-08-19 / changelog enlazado |
+| Índice maestro | `docs/DOCUMENTATION_INDEX.md` | Inventario, estado y reglas de actualización | documentación | antes y después de una tarea | cualquier documento creado, movido o archivado | Sí | Vigente | sustituye catálogos dispersos | 2026-08-19 / changelog registrado |
+| Historial de cambios | `CHANGELOG.md` | Evolución funcional, arquitectura y versiones del repositorio y plugin neurosimbólico | versiones, documentación | revisar qué cambió entre versiones o preparar una nueva | cambios funcionales, contratos, motores, verificación o versión declarada | Sí | Vigente | complementa Git y manifiestos de versión | 2026-08-19 / plugin 1.3.0 |
 | Blueprint auditado | `SYSTEM_BLUEPRINT.md` | Instantánea de arquitectura de 2025 | arquitectura | investigación histórica | no actualizar; crear evidencia vigente aparte | No | Reemplazado | sustituido por `ARCHITECTURE.md` | 2026-08-17 / rama de verificación |
 | Árbol del repositorio | `STRUCTURE.md` | Instantánea generada y voluminosa | estructura | rastreo histórico excepcional | regenerar como artefacto nuevo, no editar como fuente | No | Histórico | sustituido por Git y este índice | 2026-08-17 / rama de verificación |
 | Consolidación fase 1 | `phase1_consolidation_report.md` | Resultado puntual de inventario | razonamiento | comparar evolución inicial | no actualizar | No | Histórico | sustituido por arquitectura e informe de verificación | 2026-08-17 / rama de verificación |
@@ -39,7 +40,7 @@
 | Configuración MCP raíz | `.mcp.json` | Servidores MCP del repositorio | integraciones | cambiar servidores globales | altas, bajas o comandos MCP | Sí | Vigente | complementa `.claude/.mcp.json` | 2026-08-17 / rama de verificación |
 | Instrucciones Hermes | `agents/hermes/SOUL.md` | Conducta central del agente Hermes | Hermes | modificar comportamiento Hermes | políticas o flujo Hermes | Sí | Vigente | complementa `CLAUDE.md` | 2026-08-18 / tool neurosimbólica |
 | Configuración Hermes | `agents/hermes/config/config.yaml` | Configuración versionada de Hermes | Hermes | cambiar runtime o plugins | claves o componentes configurados | Sí | Parcial | complementa SOUL y plugin | 2026-08-17 / rama de verificación |
-| Manifiesto plugin | `agents/hermes/plugins/neurosymbolic-integration/plugin.yaml` | Tool oficial, hooks y metadatos del plugin | Hermes, razonamiento | cambiar integración CLI | tools, hooks, permisos o módulo | Sí | Vigente | complementa arquitectura | 2026-08-18 / tool neurosimbólica |
+| Manifiesto plugin | `agents/hermes/plugins/neurosymbolic-integration/plugin.yaml` | Tool oficial, hooks y metadatos del plugin | Hermes, razonamiento | cambiar integración CLI | tools, hooks, permisos o módulo | Sí | Vigente | complementa arquitectura | 2026-08-19 / plugin 1.3.0 |
 | Caveman | `.claude/skills/caveman/SKILL.md` | Guía de razonamiento simplificado | skill Claude | explicación paso a paso | conducta del skill | Sí | Vigente | independiente | 2026-08-17 / rama de verificación |
 | Codebase Memory | `.claude/skills/codebase-memory/SKILL.md` | Uso de CBM desde Claude | skill Claude, memoria | búsqueda estructural | comandos CBM | Sí | Parcial | complementa guías CBM | 2026-08-17 / rama de verificación |
 | Análisis cuantitativo | `agents/hermes/skills/main/advanced-quant-analysis/SKILL.md` | Instrucciones cuantitativas | skill Hermes | tareas cuantitativas | interfaz o implementación asociada | No | Parcial | sin ejecutor demostrado | 2026-08-17 / rama de verificación |
@@ -101,6 +102,7 @@
 
 - Arquitectura: `ARCHITECTURE.md`.
 - Operación y comandos: `README.md`, `package.json` y scripts reales.
+- Historial y versiones: `CHANGELOG.md`.
 - Conducta de agentes: `CLAUDE.md` y `agents/hermes/SOUL.md`.
 - Estado probado: `docs/verification-report.md` y la suite.
 - Parches: `docs/PATCH_CATALOG.md`.
