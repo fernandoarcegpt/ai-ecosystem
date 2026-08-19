@@ -1,6 +1,6 @@
 name: neurosymbolic-integration
-version: "1.1.0"
-description: Auditable neuro-symbolic tool and explicit opt-in task orchestration for Hermes
+version: "1.2.0"
+description: Auditable multi-engine neuro-symbolic reasoning with fail-closed grounding for Hermes
 author: "You (fernando)"
 kind: standalone
 provides_tools:
