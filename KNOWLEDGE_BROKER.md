@@ -1,5 +1,8 @@
 # Knowledge Broker
 
+> **Estado: histórico y reemplazado.** Describe un broker de Obsidian distinto
+> del módulo vigente `sharememory/hermes_memory/knowledge_broker.py`.
+
 > Gateway hacia Obsidian Vault mediante Local REST API
 
 ## 🎯 Función

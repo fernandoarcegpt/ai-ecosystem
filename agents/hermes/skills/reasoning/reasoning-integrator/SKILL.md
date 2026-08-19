@@ -12,6 +12,9 @@ metadata:
 
 # Reasoning Integrator
 
+> Before changing engines, routing, or integration, consult the reasoning
+> sources selected by `docs/DOCUMENTATION_INDEX.md` and apply their update criteria.
+
 ## Overview
 The Reasoning Integrator provides neuro-symbolic reasoning capabilities that operate transparently alongside standard LLM processing. It integrates symbolic engines (Datalog, Z3, NetworkX) into the decision loop while maintaining full auditability.
 
@@ -154,7 +157,7 @@ Located in `tests/`:
 
 Run with:
 ```bash
-PYTHONPATH=/home/fernando/ai-ecosystem/skilled:$PYTHONPATH pytest tests/
+PYTHONPATH=$HOME/ai-ecosystem/skilled:$PYTHONPATH pytest tests/
 ```
 
 ### Integration Scenarios
@@ -176,6 +179,6 @@ PYTHONPATH=/home/fernando/ai-ecosystem/skilled:$PYTHONPATH pytest tests/
 
 ## References
 
-- [Semantic Router Documentation](references/semantic_router.md)
-- [Engine Integration Guides](references/engine_integrations.md)
-- [Policy Engine Details](references/policy_enforcement.md)
+- [Semantic Router Documentation](../semantic-router/SKILL.md)
+- [Validated engine integration](../../../../../README.md#componentes-principales)
+- [Operational decision tree](../../../../../skilled/reasoning/operational_decision.py)

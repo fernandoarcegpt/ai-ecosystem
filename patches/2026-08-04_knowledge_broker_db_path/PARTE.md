@@ -1,7 +1,12 @@
 # Parche: knowledge_broker_db_path
 
+> **Estado: aplicado y posteriormente modernizado.** El sufijo `.kuzu` sigue
+> vigente, pero la ruta absoluta mostrada abajo fue sustituida el 2026-08-17
+> por `KNOWLEDGE_DB_PATH` con un valor predeterminado relativo al repositorio.
+> Consulte `docs/PATCH_CATALOG.md` para el estado actual.
+
 **Fecha**: 2026-08-04  
-**Sesión**: b8380c00-1a06-4f9e-b215-d04f7c21a4bb  
+**Sesión**: <session-id>
 **Componente**: `src/ingest.py` - Pipeline knowledge-broker  
 **Tipo**: Corrección de configuración / Ruta de archivo
 
@@ -25,8 +30,8 @@ La base de datos KùzuDB no se creaba correctamente porque la ruta especificada 
 @@ -28,7 +28,7 @@ Settings.embed_model = OpenAIEmbedding(
  
  # 2. Inicializar KùzuDB
--db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base"
-+db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
+-db_path = "$HOME/ai-ecosystem/storage/kuzu/knowledge_base"
++db_path = "$HOME/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
  os.makedirs(os.path.dirname(db_path), exist_ok=True)
  
  # Clean any previous test files
@@ -35,7 +40,7 @@ La base de datos KùzuDB no se creaba correctamente porque la ruta especificada 
 ### Estado Actual Verificado (línea 31 del archivo)
 
 ```python
-db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
+db_path = "$HOME/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
 ```
 
 ---
@@ -61,13 +66,13 @@ python -c "from llama_index.core import PropertyGraphIndex; print('llama_index O
 
 ### Paso 2: Verificar ruta de archivo
 ```bash
-ls -la /home/fernando/ai-ecosystem/storage/
+ls -la $HOME/ai-ecosystem/storage/
 ```
 **Resultado**: ✅ Directorio `kuzu/` existe
 
 ### Paso 3: Ejecutar ingestión
 ```bash
-cd /home/fernando/ai-ecosystem && python src/ingest.py 2>&1 | head -20
+cd $HOME/ai-ecosystem && python src/ingest.py 2>&1 | head -20
 ```
 **Resultado**: Script ejecutado sin errores de ruta de base de datos
 
@@ -94,6 +99,6 @@ cd /home/fernando/ai-ecosystem && python src/ingest.py 2>&1 | head -20
 
 ## 📚 Referencias
 
-- **Sesión original**: b8380c00-1a06-4f9e-b215-d04f7c21a4bb
-- **Archivo modificado**: `/home/fernando/ai-ecosystem/src/ingest.py`
-- **Base de datos generada**: `/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base.kuzu`
+- **Sesión original**: <session-id>
+- **Archivo modificado**: `$HOME/ai-ecosystem/src/ingest.py`
+- **Base de datos generada**: `$HOME/ai-ecosystem/storage/kuzu/knowledge_base.kuzu`

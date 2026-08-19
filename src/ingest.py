@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import kuzu
 from dotenv import load_dotenv
 from llama_index.core import SimpleDirectoryReader, PropertyGraphIndex, Settings
@@ -28,7 +29,11 @@ Settings.embed_model = OpenAIEmbedding(
 )
 
 # 2. Inicializar KùzuDB
-db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
+repo_root = Path(__file__).resolve().parents[1]
+db_path = os.getenv(
+    "KNOWLEDGE_DB_PATH",
+    str(repo_root / "storage" / "kuzu" / "knowledge_base.kuzu"),
+)
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
 # Clean any previous test files

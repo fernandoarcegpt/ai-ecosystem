@@ -6,6 +6,10 @@ platforms: [linux]
 
 # Delegation Handler
 
+Antes de delegar una modificación, seleccione en
+`docs/DOCUMENTATION_INDEX.md` las fuentes del área afectada y transmita solo
+ese contexto. La finalización debe revisar sus criterios de actualización.
+
 ## Funcionalidad Principal
 Este skill evalúa tareas y delega a habilidades especializadas cuando es necesario, evitando que se ejecuten en Claude Code:
 

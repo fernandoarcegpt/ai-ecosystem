@@ -27,8 +27,8 @@ Index the default ecosystem::
 Declare additional owned projects::
 
     python3 knowledge_broker.py ingest \
-        --own-project /home/fernando/ai-ecosystem/hermes \
-        --own-project /home/fernando/ai-ecosystem/sharememory
+        --own-project /path/to/ai-ecosystem/hermes \
+        --own-project /path/to/ai-ecosystem/sharememory
 
 Search indexed knowledge::
 
@@ -37,11 +37,11 @@ Search indexed knowledge::
 Environment variables
 ---------------------
 HERMES_MEMORY_DIR
-    Memory directory. Defaults to
-    /home/fernando/ai-ecosystem/sharememory/hermes_memory
+    Memory directory. Defaults to ``sharememory/hermes_memory`` inside the
+    checkout containing this module.
 
 HERMES_PROJECT_ROOT
-    Ecosystem root. Defaults to /home/fernando/ai-ecosystem
+    Ecosystem root. Defaults to the checkout containing this module.
 
 HERMES_OWN_PROJECTS
     Colon-separated owned project paths.
@@ -69,7 +69,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional, Sequence, Set, Tuple
 
 
-DEFAULT_PROJECT_ROOT = Path("/home/fernando/ai-ecosystem")
+DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MEMORY_DIR = DEFAULT_PROJECT_ROOT / "sharememory" / "hermes_memory"
 
 # Directories that normally contain generated, vendored, cached or private data.
@@ -538,6 +538,79 @@ class KnowledgeBroker:
             if changed:
                 self._save_memory_unlocked(entries)
             return after - before
+
+    def export_validated_snapshot(
+        self,
+        output_path: str,
+        *,
+        minimum_confidence: float = 0.8,
+    ) -> Dict[str, Any]:
+        """Export stable, validated knowledge suitable for version control.
+
+        Runtime memory remains in the broker. Only active entries explicitly
+        tagged ``verified``/``validated`` and carrying sufficient confidence
+        are included in the snapshot.
+        """
+        with self._transaction("r"):
+            entries = self._load_memory_unlocked()
+
+        exported: List[Dict[str, Any]] = []
+        for entry in entries.values():
+            if entry.get("status", "active") != "active":
+                continue
+            metadata = entry.get("metadata", {})
+            tags = set(metadata.get("tags", []))
+            if not tags.intersection({"verified", "validated"}):
+                continue
+            try:
+                confidence = float(
+                    metadata.get(
+                        "verification_confidence",
+                        metadata.get("confidence", 0.0),
+                    )
+                )
+            except (TypeError, ValueError):
+                continue
+            if confidence < minimum_confidence:
+                continue
+            exported.append(
+                {
+                    "id": entry["id"],
+                    "type": entry.get("type"),
+                    "content": self._load_payload(entry) or entry.get("content"),
+                    "source": metadata.get("source"),
+                    "source_key": metadata.get("source_key"),
+                    "confidence": confidence,
+                    "observed_at": entry.get("timestamp"),
+                    "tags": sorted(tags),
+                }
+            )
+
+        exported.sort(key=lambda item: item["id"])
+        destination = Path(output_path).expanduser().resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"schema_version": 1, "entries": exported}
+        fd, temp_name = tempfile.mkstemp(
+            prefix="validated-knowledge-",
+            suffix=".tmp",
+            dir=str(destination.parent),
+            text=True,
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_name, destination)
+        except Exception:
+            Path(temp_name).unlink(missing_ok=True)
+            raise
+        return {
+            "output_path": str(destination),
+            "exported_entries": len(exported),
+            "minimum_confidence": minimum_confidence,
+        }
 
     def retrieve(
         self,
@@ -1296,6 +1369,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("stats", help="Show memory statistics.")
     subparsers.add_parser("cleanup", help="Persist expiration cleanup.")
+    export_parser = subparsers.add_parser(
+        "export-validated",
+        help="Export verified knowledge as a stable versionable snapshot.",
+    )
+    export_parser.add_argument("output_path")
+    export_parser.add_argument("--minimum-confidence", type=float, default=0.8)
 
     return parser
 
@@ -1357,6 +1436,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command == "cleanup":
         count = broker.cleanup_expired()
         print(json.dumps({"newly_archived": count}, indent=2))
+        return 0
+
+    if args.command == "export-validated":
+        report = broker.export_validated_snapshot(
+            args.output_path,
+            minimum_confidence=args.minimum_confidence,
+        )
+        print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
 
     parser.error(f"Unknown command: {args.command}")

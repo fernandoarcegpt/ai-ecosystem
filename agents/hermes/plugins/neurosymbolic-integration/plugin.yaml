@@ -1,8 +1,11 @@
 name: neurosymbolic-integration
-version: "1.0.0"
-description: Integration layer between Hermes and the neuro-symbolic reasoning engine
+version: "1.3.0"
+description: Capability-aware multi-engine neuro-symbolic reasoning with runtime proof and fail-closed grounding for Hermes
 author: "You (fernando)"
 kind: standalone
-provides_tools: []
+provides_tools:
+  - neurosymbolic_reasoning
 provides_hooks:
   - pre_llm_call
+  - post_tool_call
+  - transform_llm_output

@@ -1,5 +1,8 @@
 # Notas Técnicas - knowledge_broker_db_path
 
+> Registro histórico complementario. Consulte `docs/PATCH_CATALOG.md` antes de
+> aplicar cualquier instrucción o ruta de este archivo.
+
 ## Problemas Identificados y Soluciones
 
 ### Problema 1: Ruta sin extensión .kuzu
@@ -26,7 +29,7 @@
 
 ```python
 # Ruta final confirmada (línea 31)
-db_path = "/home/fernando/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
+db_path = "$HOME/ai-ecosystem/storage/kuzu/knowledge_base.kuzu"
 
 # Patrones de exclusión completos (líneas 57-66)
 exclude_patterns = [

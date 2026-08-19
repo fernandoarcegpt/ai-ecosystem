@@ -1,7 +1,7 @@
 ---
 name: hermes-symbolic-integration
 description: Integration of neuro-symbolic reasoning router with Hermes chat pipeline
-version: 1.0.0
+version: 1.1.0
 author: System
 category: reasoning
 tags:
@@ -27,46 +27,32 @@ triggers:
 
 # Hermes Symbolic Integration
 
-This skill provides automatic neuro-symbolic reasoning integration with the Hermes chat pipeline. It intercepts user queries and routes them to appropriate symbolic engines (Z3, NetworkX, PyDatalog) based on semantic analysis.
+> Before changing the plugin, paths, or commands, consult the Hermes and
+> reasoning section of `docs/DOCUMENTATION_INDEX.md` and apply its update criteria.
+
+This skill provides automatic neuro-symbolic reasoning integration with the
+Hermes chat pipeline. `ProblemExtractor` is the canonical formalizer. Simple
+problems use one engine; `combined` problems transfer knowledge through
+NetworkX → PyDatalog → Z3/Optimize. Hermes records the execution through the
+official `neurosymbolic_reasoning` tool and receives deterministic Markdown.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Hermes Chat Pipeline                     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              semantic_router.classify_task_structure        │
-│                                                             │
-│  Analyzes query strings → mode + engine + confidence        │
-└─────────────────────────────────────────────────────────────┘
-                              │
-           ┌──────────────────┼──────────────────┐
-           ▼                  ▼                  ▼
-    ┌──────────┐      ┌──────────┐      ┌──────────┐
-    │   LLM    │      │  Z3/SMT  │      │NetworkX  │
-    │(llm_only)│      │(constraints│      │  (graph) │
-    │          │      │ / rules) │      │          │
-    └──────────┘      └──────────┘      └──────────┘
-           │                  │                  │
-           └──────────────────┼──────────────────┘
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Result Integration + Final Response          │
-└─────────────────────────────────────────────────────────────┘
-```
+`pre_llm_call detector → Hermes tool call → ProblemExtractor → SymbolicProblem → coordinator → grounded contract → transform_llm_output`
+
+For composed problems the coordinator runs:
+
+`NetworkX → graph facts → PyDatalog → derived constraints → Z3/Optimize → validation`
 
 ## Modes
 
 | Mode | Engine | Description | Tests |
 |------|--------|-------------|-------|
-| `llm_only` | none | Simple queries, no symbolic reasoning | test_a.py |
-| `rules` | z3 | Logical rule validation, permission checks | test_b.py |
-| `constraints` | z3 | Assignment, budget, resource allocation | test_c.py |
-| `graph` | networkx | Dependency cycles, path analysis | test_d.py |
-| `human_review` | none | Missing critical information | test_e.py |
+| `none` | none | No formalizable symbolic structure | acceptance suite |
+| `logic` | PyDatalog | Facts, rules and explicit/inferred queries | acceptance suite |
+| `constraints` | Z3/Optimize | Assignment, capacity and objectives | acceptance suite |
+| `graphs` | NetworkX | Cycles, order and transitive reachability | acceptance suite |
+| `combined` | NetworkX → PyDatalog → Z3 | Composed, validated reasoning | transfer-plan E2E |
 
 ## Installation
 
@@ -75,7 +61,7 @@ This skill provides automatic neuro-symbolic reasoning integration with the Herm
 pip install networkx z3-solver pydatalog
 
 # Copy skill to Hermes profile
-cp ~/.hermes/skills/hermes-symbolic-integration /home/fernando/.hermes/skills/reasoning/
+cp ~/.hermes/skills/hermes-symbolic-integration $HOME/.hermes/skills/reasoning/
 ```
 
 ## Usage from CLI
@@ -99,24 +85,22 @@ hermes chat -q "Distribute 10 users among 5 teams but no budget info"
 
 ## Integration Points
 
-The skill integrates via two main entry points:
+The integration has three boundaries:
 
-1. `hermes_auto_detect_and_reason()` - Auto-triggering for contextual analysis
-2. `hermes_explicit_symbolic_reasoning()` - Explicit symbolic reasoning requests
+1. `pre_llm_call` detects structure but never executes an engine.
+2. `neurosymbolic_reasoning` is the only execution boundary visible to Hermes.
+3. `transform_llm_output` returns grounded Markdown or fails closed if the
+   required tool call did not occur.
 
-Both functions are exposed through `hermes_integration.py` and called automatically during chat processing.
+The handler is idempotent per `request_id`, so retries do not execute the
+engines twice.
 
 ## Output Format
 
-When symbolic reasoning activates, output includes trace markers:
+Runtime proof is JSON Lines and remains secondary to the Hermes transcript:
 
-```
-[reasoning-router]
-mode=<mode_name>
-engine=<engine_name|none>
-executed=<true|false>
-result=<result_token>
-evidence=<brief_explanation>
+```json
+{"schema_version":1,"event":"tool_completed","run_id":"...","status":"success","engine":"combined","engines":{"networkx":"success","pydatalog":"success","z3":"success"}}
 ```
 
 ## Testing
@@ -124,7 +108,10 @@ evidence=<brief_explanation>
 Run the built-in tests:
 
 ```bash
-python test_symbolic_integration.py
+PYTHONPATH=.:./skilled python -m pytest -q \
+  tests/test_hermes_plugin_hook.py \
+  tests/test_composed_neurosymbolic_pipeline.py
 ```
 
-All 5 tests should pass with expected modes and engines.
+For a real installation, run `npm run test:hermes-cli`; symbolic prompts must
+show at least one official tool call and ordinary text must show zero.

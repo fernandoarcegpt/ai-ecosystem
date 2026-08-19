@@ -1,5 +1,9 @@
 # Decisiones Técnicas - knowledge_broker_db_path
 
+> Registro histórico. La decisión sobre `.kuzu` continúa vigente; la ruta fija
+> fue reemplazada por configuración portable. Estado actual:
+> `docs/PATCH_CATALOG.md`.
+
 ## Decisiones Tomadas Durante la Implementación
 
 ### 1. Elección de extensión .kuzu para archivo de base de datos

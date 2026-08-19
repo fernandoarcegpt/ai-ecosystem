@@ -1,5 +1,9 @@
 # Índice Principal de Parches y Documentación
 
+> **Estado: histórico y reemplazado.** Consulte `docs/PATCH_CATALOG.md`. Las
+> afirmaciones de este archivo se preservan para trazabilidad y no deben
+> interpretarse como verificación actual.
+
 > **Propósito**: Registro centralizado de todos los cambios significativos realizados en el proyecto, complementando el historial de Git con contexto técnico, decisiones, pruebas e incidencias.
 
 ## 📅 Resumen de Contenidos
@@ -93,7 +97,7 @@ Los cambios se documentan **en orden cronológico inverso** (más reciente prime
 
 ```bash
 # Desde el directorio raíz del proyecto
-cd /home/fernando/ai-ecosystem
+cd $HOME/ai-ecosystem
 
 # Utilizar scripts de verificación (si disponibles)
 python patches/[nombre_parche]/scripts/verify_changes.py
@@ -144,8 +148,8 @@ find patches -name "diff.txt" | sort -r | head -1 | xargs cat
 
 | Sesión | Fecha | Acción Principal |
 |---------|------|---------------|
-| b8380c00-1a06-4f9e-b215-d04f7c21a4bb | 2026-08-04 | Patch knowledge_broker_db_path |
-| 8f96ed12-a53b-4654-a099-a4b3123b885f | 2026-08-02 | Patch notex_audio_only_imports |
+| <session-id> | 2026-08-04 | Patch knowledge_broker_db_path |
+| <session-id> | 2026-08-02 | Patch notex_audio_only_imports |
 
 ---
 

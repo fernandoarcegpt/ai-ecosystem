@@ -10,6 +10,10 @@ license: MIT
 
 # System Directives – Orchestration Timing & Action Rules
 
+> **Estado: reemplazado.** Las reglas vigentes están en `CLAUDE.md` y
+> `agents/hermes/SOUL.md`. Consulte `docs/DOCUMENTATION_INDEX.md` antes de usar
+> los comandos históricos descritos aquí.
+
 ## 📌 Propósito
 
 Estas directrices establecen **micro‑TIEMPO** para cada decisión de ejecución dentro del ecosistema de Hermes:
@@ -122,7 +126,7 @@ orchestrator-main \"verificar\" --health && self-audit --audit
 
 # Ejemplo: Al corregir errores de linter (tipo de recurso --simple)
 delegate_task(
-    goal=\"Ejecutar linter en /home/fernando/.hermes/skills/software-development/general-planning/SKILL.md y corregir lint errors, tests y esquemas de código.\"
+    goal=\"Ejecutar linter en $HOME/.hermes/skills/software-development/general-planning/SKILL.md y corregir lint errors, tests y esquemas de código.\"
 )
 ``` 
 
@@ -130,7 +134,7 @@ delegate_task(
 
 ```bash
 # Siempre primero... intenta ver si se puede resolver localmente con read_file.
-read_file /home/fernando/ai-ecosystem/README.md
+read_file $HOME/ai-ecosystem/README.md
 
 # Si aun asi es insuficiente, buscar externo
 web_search \"remitir un error luego de ejecucion git\"

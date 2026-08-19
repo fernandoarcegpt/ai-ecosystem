@@ -1,131 +1,74 @@
-# Hermes Agent Configuration
+# Instrucciones operativas del repositorio
 
-## Rules
+Este archivo describe únicamente capacidades que existen en el árbol actual.
 
-- Do what has been asked; nothing more, nothing less
-- NEVER create files unless absolutely necessary — prefer editing existing files
-- NEVER create documentation files unless explicitly requested
-- NEVER save working files or tests to root — use `/src`, `/tests`, `/docs`, `/config`, `/scripts`
-- ALWAYS read a file before editing it
-- NEVER commit secrets, credentials, or .env files
-- NEVER add a `Co-Authored-By` trailer to user commits unless this project's `.claude/settings.json` has `attribution.commit` set (#2078). The Claude Code Bash tool may suggest one in its default commit-message template — ignore it. `Co-Authored-By` is semantic authorship attribution under git/GitHub convention; the tool is the facilitator, not a co-author.
-- **Allow dynamic adjustment of constraints via orchestration**: Any rule can be modified programmatically through `orchestrator-main "ajustar-reglas"`
-- Keep files under 500 lines
-- Validate input at system boundaries
+## Política obligatoria de no borrado
 
-## Hermes Agent Ecosystem
+**Ningún agente, script o automatización debe eliminar definitivamente archivos o directorios del proyecto.**
 
-### Core Skills
+Cuando un elemento deje de ser necesario en su ubicación activa, debe retirarse mediante traslado a `vault/` conforme a `docs/RETENTION_POLICY.md`, preservando cuando sea posible su ruta original y registrando el movimiento en `vault/INDEX.md`.
 
-| Skill | Propósito | Comandos clave |
-|-------|-----------|----------------|
-| `orchestrator-main` | Orquestador central que maneja todo el ecosistema. | `orchestrator-main "tarea" --full` |
-| `general-planning` | Genera planes según complejidad y tipo de problema. | `general-planning "implementar API" --type feature --complexity medium` |
-| `research-search-master` | Búsqueda integrada (arXiv, YouTube, StackOverflow, GitHub). | `orchestrator-main "error X" --search [stackoverflow,youtube]` |
-| `knowledge-broker` | Ingesta PDFs/código → KùzuDB + LlamaIndex (PropertyGraphIndex) | `python src/ingest.py` |
-| `knowledge-query` | Consulta semántica + grafo en el broker | `python src/query.py "pregunta"` |
-| `portfolio-optimization` | Optimización de carteras (Mean-Variance, Black-Litterman, HRP) | Usado por `android-fin-gpt-trader` |
-| `data-verifier` | Verifica información médica y científica usando fuentes confiables | Validación de datos ESG y macroeconómicos |
+La eliminación definitiva dentro de `vault/` queda reservada exclusivamente al propietario del repositorio y se realiza manualmente. Los agentes no deben ejecutar `rm`, `git rm`, APIs de borrado ni purgas automáticas sobre contenido del proyecto o del baúl.
 
-### Workflow Integration
+Si el elemento contiene secretos, credenciales o datos sensibles, no debe copiarse automáticamente al baúl: el flujo debe bloquearse y solicitar intervención humana.
 
-```bash
-# 1️⃣ Verificar que todas las skills están disponibles
-orchestrator-main "tarea" --detect --health
+## Flujo de trabajo
 
-# 2️⃣ Ejecutar los tests del proyecto
-python3 -m pytest tests/
+1. Identificar el área afectada y consultar `docs/DOCUMENTATION_INDEX.md`.
+2. Abrir solo las fuentes que el índice asigna a esa área; no cargar todo el inventario.
+3. Inspeccionar el código y el estado de Git antes de modificar.
+4. Clasificar la solicitud con `reasoning.operational_decision` cuando requiera enrutamiento explícito.
+5. Usar `TaskRouter` para objetivos persistentes, dependencias y bloqueos.
+6. Ejecutar y verificar el cambio antes de declararlo completo.
+7. Revisar en el índice qué documentos deben actualizarse por el cambio. Si se crea, mueve, reemplaza o archiva documentación, actualizar también el índice.
+8. Si un archivo o directorio debe retirarse de su ubicación activa, moverlo a `vault/` y registrarlo; nunca destruirlo automáticamente.
+9. Registrar en `KnowledgeBroker` solo resultados que hayan sido verificados.
+10. Para autonomía iniciada por Hermes, aceptar únicamente el prefijo explícito
+   `/orchestrate` y exigir `HERMES_AUTONOMY_ENABLED=1`.
+11. Alimentar el ciclo de mejora con informes persistidos; una propuesta no es
+   evidencia de mejora hasta superar métricas y guardas.
 
-# 3️⃣ Ejecutar pipeline de memoria
-./scripts/run_memory_pipeline.sh
+No se deben tratar los nombres históricos `orchestrator-main`, `general-planning` ni `@hermes/cli` como comandos instalados: en este repositorio algunos sobreviven únicamente como documentación de skills.
 
-# 4️⃣ Descargar y digerir un libro de referencia
-downloader.sh "Artificial Intelligence: A Modern Approach" pdf
-
-# 5️⃣ Generar y ejecutar un plan completo
-general-planning "implementar sistema de pagos" --type feature --complexity high --full
-```
-
-## Memory & Learning
-
-### Before Any Task
-```bash
-npx @hermes/cli@latest memory search --query "[task keywords]" --namespace patterns
-npx @hermes/cli@latest hooks route --task "[task description]"
-```
-
-### After Success
-```bash
-npx @hermes/cli@latest memory store --namespace patterns --key "[name]" --value "[what worked]"
-npx @hermes/cli@latest hooks post-task --task-id "[id]" --success true --store-results true
-```
-
-### MCP Tools (use `ToolSearch("keyword")` to discover)
-
-| Category | Key Tools |
-|----------|-----------|
-| **Memory** | `memory_store`, `memory_search`, `memory_search_unified` |
-| **Bridge** | `memory_import_claude`, `memory_bridge_status` |
-| **Swarm** | `swarm_init`, `swarm_status`, `swarm_health` |
-| **Agents** | `agent_spawn`, `agent_list`, `agent_status` |
-| **Hooks** | `hooks_route`, `hooks_post-task`, `hooks_worker-dispatch` |
-| **Security** | `aidefence_scan`, `aidefence_is_safe`, `aidefence_has_pii` |
-
-### Background Workers
-
-| Worker | When |
-|--------|------|
-| `audit` | After security changes |
-| `optimize` | After performance work |
-| `testgaps` | After adding features |
-| `map` | Every 5+ file changes |
-| `document` | After API changes |
+## Comandos reales
 
 ```bash
-npx @hermes/cli@latest hooks worker dispatch --trigger audit
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-test.txt
+npm test
+npm run verify:all
 ```
 
-## Build & Test
-
-- ALWAYS run tests after code changes
-- ALWAYS verify build succeeds before committing
+Prueba de integración con una instalación real de Hermes:
 
 ```bash
-npm run build && npm test
+npm run test:hermes-cli
+npm run test:claude-code-live
+npm run test:hermes-autonomy-live
 ```
 
-## OpenSpec Integration
+El script exige que `neurosymbolic-integration` esté descubierto y habilitado
+por Hermes. Ejecuta NetworkX, Z3 y PyDatalog mediante `hermes chat -q`, exige
+una llamada oficial a `neurosymbolic_reasoning` y comprueba que un mensaje
+ordinario conserve cero llamadas.
 
-### Generated Scripts
+## Componentes operativos
 
-Two new automation scripts have been added for OpenSpec integration:
+- `skilled/reasoning/task_router.py`: tareas, dependencias, ejecutores, verificación, persistencia, bloqueo y reanudación.
+- `skilled/reasoning/operational_decision.py`: árbol central de decisión.
+- `skilled/orchestration`: agentes, ejecución multi-etapa, puente Hermes e historial.
+- `skilled/reasoning/claude_code_executor.py`: adaptador opt-in de Claude Code.
+- `skilled/reasoning/neuro_symbolic_engine.py`: NetworkX, Z3 y PyDatalog.
+- `agents/hermes/plugins/neurosymbolic-integration`: herramienta
+  `neurosymbolic_reasoning`, detector previo, auditoría y salida fundamentada.
+- `sharememory/hermes_memory/knowledge_broker.py`: memoria operativa.
+- `skilled/improvement`: mejora continua y construcción de evaluaciones.
+- `datasets/evaluation`: casos sintéticos versionados, sin datos de usuario.
+- `vault/`: cuarentena de archivos retirados; nunca se purga automáticamente.
 
-1. **`generate-specs.sh`** - Auto-generates OpenSpec specs from Python files
-   - Usage: `npm run generate-specs` or `./generate-specs.sh`
-   - Scans project for `*.py` files (excludes node_modules, .git, __pycache__, venv)
-   - Creates `.js` spec files in `.openspec/specs/`
-   - Validates each spec using OpenSpec CLI
-   - Skips existing specs to avoid duplication
+## Criterio de finalización
 
-2. **`list-all-specs.sh`** - Lists all OpenSpec specs (not just active changes)
-   - Usage: `./list-all-specs.sh`
-   - Lists both `.js` and `.md` spec files
-   - Shows total count
+Una tarea está completa solo si existe resultado, verificación y evidencia. Si falta un ejecutor o una decisión humana, debe quedar `blocked` con causa, evidencia, alternativas, riesgos, acción requerida y reanudación definida.
 
-### npm Scripts Added
-
-```json
-{
-  "scripts": {
-    "generate-specs": "./generate-specs.sh",
-    "generate-specs:ci": "npm run generate-specs && git add .openspec/specs && git commit -m 'feat: auto-generated specs from Python files'"
-  }
-}
-```
-
-### Workflow Guidelines
-
-- **Before committing**: Run `npm run generate-specs` to ensure specs are current
-- **CI Integration**: Use `npm run generate-specs:ci` for automated spec generation in CI/CD
-- **Spec format**: Specs are `.js` files (OpenSpec expects JS format, not Markdown)
-- **Validation**: All generated specs pass `openspec validate` automatically
+Las reglas detalladas y el estado de implementación están en `docs/verification-report.md`.

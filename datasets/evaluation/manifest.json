@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "purpose": "routing and orchestration acceptance evaluation",
+  "contains_user_data": false,
+  "fine_tuning_authorized": false,
+  "quality": {
+    "total": 72,
+    "splits": {
+      "train": 62,
+      "validation": 6,
+      "evaluation": 4
+    },
+    "with_expected_actions": 72,
+    "edge_cases": 16,
+    "ready_for_comparative_evaluation": true
+  },
+  "files": {
+    "train": "train.jsonl",
+    "validation": "validation.jsonl",
+    "evaluation": "evaluation.jsonl"
+  }
+}

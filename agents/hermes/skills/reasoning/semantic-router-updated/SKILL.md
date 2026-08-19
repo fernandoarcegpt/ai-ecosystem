@@ -81,8 +81,8 @@ PYTHONPATH=/path/to/skilled:$PYTHONPATH pytest tests/test_semantic_router/
 ```
 
 ## References
-- [Neuro-Symbolic Reasoning in Hermes](references/neurosymbolic_reasoning.md)
-- [Symbolic Engine Integration](references/symbolic_engine_integration.md)
-- [Classification Logic](references/classification_logic.md)
+- [Neuro-Symbolic Reasoning in Hermes](../../../../../README.md#ejemplo-de-razonamiento)
+- [Symbolic Engine Integration](../../../plugins/neurosymbolic-integration/plugin.yaml)
+- [Classification Logic](../semantic-router/references/classification_logic.md)
 
-See `references/` directory for detailed technical documentation on each reasoning engine.
+Use the canonical references above; this compatibility skill does not maintain a duplicate `references/` tree.

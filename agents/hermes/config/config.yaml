@@ -155,6 +155,7 @@ platform_toolsets:
     - homeassistant
     - image_gen
     - memory
+    - neurosymbolic
     - session_search
     - skills
     - spotify
@@ -179,6 +180,7 @@ platform_toolsets:
     - homeassistant
     - image_gen
     - memory
+    - neurosymbolic
     - session_search
     - skills
     - spotify
@@ -214,8 +216,10 @@ plugins:
     - neurosymbolic-integration
 known_plugin_toolsets:
   cli:
+    - neurosymbolic
     - spotify
   telegram:
+    - neurosymbolic
     - spotify
 image_gen:
   provider: openrouter

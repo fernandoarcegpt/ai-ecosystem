@@ -1,54 +1,53 @@
-"""Sistema de enrutamiento de tareas y coordinación de agentes
+"""Enrutamiento y ejecución persistente de tareas para Hermes.
 
-Este módulo implementa la lógica central para:
-- Comprensión y planificación de objetivos
-- Descomposición en tareas ejecutables  
-- Análisis de dependencias y riesgos
-- Selección automática de agentes especializados
-- Coordinación de ejecución y verificación
+El módulo recibe ejecutores explícitos, respeta dependencias, verifica
+resultados, persiste el estado y deja bloqueos accionables.
 """
 
-import json
-import re
-import os
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, asdict
-from enum import Enum
-from datetime import datetime
+from __future__ import annotations
 
-# Importar componentes del ecosistema
-REASONING_AVAILABLE = False
-try:
-    from .networkx_wrapper import GraphAnalyzer
-    from .pydatalog_integration import SymbolicEngine
-    from .z3_solver_integration import ConstraintSolver
-    from . import NeuroSymbolicEngine, ENABLED, CURRENT_MODE
-    REASONING_AVAILABLE = True
-except ImportError:
-    pass
+import json
+import os
+import re
+import tempfile
+import uuid
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Dict, Iterable, List, Optional
+
+from .networkx_wrapper import GraphAnalyzer
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
 
 class TaskStatus(Enum):
-    PROPOSED = "proposed"           # Propuesta inicial
-    IN_PROGRESS = "in_progress"     # Trabajo en curso
-    PENDING_VERIFICATION = "pending_verification"  # Resultado pendiente de verificación
-    VALIDATED = "validated"        # Resultado validado
-    BLOCKED = "blocked"             # Bloqueada por dependencias o información faltante
-    FAILED = "failed"               # Falló durante ejecución
-    COMPLETED = "completed"         # Tarea completada y verificada
+    PROPOSED = "proposed"
+    IN_PROGRESS = "in_progress"
+    PENDING_VERIFICATION = "pending_verification"
+    VALIDATED = "validated"
+    BLOCKED = "blocked"
+    FAILED = "failed"
+    COMPLETED = "completed"
+
 
 @dataclass
 class Task:
     id: str
     description: str
-    type: str  # implementation, research, analysis, review, qa
+    type: str
     priority: int
     dependencies: List[str]
-    assigned_agent: Optional[str]  # orquestador, builder, researcher, reviewer, qa
+    assigned_agent: Optional[str]
     status: TaskStatus
-    constraints: List[str]  # Restricciones simbólicas
+    constraints: List[str]
     metadata: Dict[str, Any]
     created_at: str
     updated_at: str
+
 
 @dataclass
 class RouteDecision:
@@ -57,410 +56,360 @@ class RouteDecision:
     reason: str
     constraints_applied: List[str]
 
+
 class TaskRouter:
-    """Enrutador inteligente de tareas usando razonamiento neurosimbólico"""
+    """Planifica, enruta, ejecuta y reanuda tareas verificables."""
 
-    def __init__(self):
-        self.swarm_config = self._load_swarm_config()
-        self.reasoning_engine = self._initialize_reasoning_engine()
-        
-    def _load_swarm_config(self) -> List[Dict]:
-        """Cargar configuración del sistema de agentes"""
-        config_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-            "hermes-workspace", 
-            "swarm.yaml"
-        )
-        
-        try:
-            import yaml
-            with open(config_path, 'r') as f:
-                config = yaml.safe_load(f)
-                return config.get('workers', [])
-        except Exception:
-            # Retornar configuración por defecto
-            return self._default_swarm_config()
+    def __init__(
+        self,
+        store_path: Optional[str] = None,
+        memory_recorder: Optional[Any] = None,
+        human_gate: Optional[Any] = None,
+        executors: Optional[Dict[str, Callable[[Task], Any]]] = None,
+    ):
+        selected = store_path or os.getenv("HERMES_TASK_STORE")
+        self.store_path = Path(selected).expanduser() if selected else None
+        self.memory_recorder = memory_recorder
+        self.human_gate = human_gate
+        self.executors = dict(executors or {})
+        self.swarm_config = self._default_swarm_config()
 
-    def _default_swarm_config(self) -> List[Dict]:
-        """Configuración base de agentes especializados"""
+    @staticmethod
+    def _default_swarm_config() -> List[Dict[str, Any]]:
         return [
-            {
-                "id": "orchestrator",
-                "name": "Orchestrator",
-                "specialty": "mission routing, task decomposition, handoffs",
-                "capabilities": ["orchestration", "decomposition", "routing"],
-                "preferredTaskTypes": ["orchestration", "planning", "routing"],
-                "greenlightRequiredFor": ["merge", "publish", "destructive"]
-            },
-            {
-                "id": "km-agent",
-                "name": "KM Agent",
-                "specialty": "knowledge management, documentation",
-                "capabilities": ["gbrain", "razsoc", "obsidian"],
-                "preferredTaskTypes": ["knowledge", "curation", "documentation"]
-            },
-            {
-                "id": "builder",
-                "name": "Builder",
-                "specialty": "focused implementation, tests, small diffs",
-                "capabilities": ["implementation", "code-editing", "tests"],
-                "preferredTaskTypes": ["implementation", "bugfix", "feature"]
-            },
-            {
-                "id": "researcher",
-                "name": "Researcher",
-                "specialty": "research, synthesis, source trails",
-                "capabilities": ["research", "synthesis", "source-verification"],
-                "preferredTaskTypes": ["research", "analysis", "options"]
-            },
-            {
-                "id": "qa",
-                "name": "QA",
-                "specialty": "browser QA, workflow smoke tests",
-                "capabilities": ["browser-qa", "smoke-verification"],
-                "preferredTaskTypes": ["qa", "smoke", "browser", "verification"]
-            },
-            {
-                "id": "reviewer",
-                "name": "Reviewer",
-                "specialty": "security review, logic review, regression detection",
-                "capabilities": ["code-review", "security-review", "regression-analysis"],
-                "preferredTaskTypes": ["review", "qa", "regression", "verification"]
-            }
+            {"id": "orchestrator", "capabilities": ["orchestration", "planning", "routing"], "preferredTaskTypes": ["orchestration", "planning", "design"]},
+            {"id": "km-agent", "capabilities": ["knowledge", "documentation"], "preferredTaskTypes": ["knowledge", "documentation"]},
+            {"id": "builder", "capabilities": ["implementation", "code", "tests"], "preferredTaskTypes": ["implementation", "bugfix"]},
+            {"id": "researcher", "capabilities": ["research", "analysis", "synthesis"], "preferredTaskTypes": ["research", "analysis"]},
+            {"id": "qa", "capabilities": ["qa", "smoke", "verification"], "preferredTaskTypes": ["qa", "verification"]},
+            {"id": "reviewer", "capabilities": ["review", "regression"], "preferredTaskTypes": ["review"]},
         ]
-
-    def _initialize_reasoning_engine(self):
-        """Inicializar motor de razonamiento neurosimbólico"""
-        if REASONING_AVAILABLE and ENABLED:
-            try:
-                return NeuroSymbolicEngine()
-            except Exception:
-                return None
-        return None
 
     def decompose_objective(self, objective: str) -> List[Task]:
-        """Descomponer un objetivo complejo en tareas ejecutables"""
-        tasks = []
-        timestamp = datetime.now().isoformat()
-        
-        # Análisis semántico del objetivo
-        objective_lower = objective.lower()
-        
-        # Identificar patrones de tareas comunes
-        patterns = {
-            "implementar": {
-                "types": ["implementation", "analysis"],
-                "agents": ["builder", "researcher"]
-            },
-            "investigar": {
-                "types": ["research", "analysis"],
-                "agents": ["researcher", "analyst"]
-            },
-            "verificar": {
-                "types": ["qa", "review"],
-                "agents": ["qa", "reviewer"]
-            },
-            "analizar": {
-                "types": ["analysis"],
-                "agents": ["researcher", "analyst"]
-            },
-            "documentar": {
-                "types": ["documentation"],
-                "agents": ["km-agent"]
-            }
-        }
-        
-        # Detectar intención principal
-        detected_type = "analysis"
-        for keyword, pattern in patterns.items():
-            if keyword in objective_lower:
-                detected_type = pattern["types"][0]
-                break
-                
-        # Generar tareas básicas
-        task_templates = [
-            ("Comprensión del problema", "analysis"),
-            ("Análisis de contexto", "analysis"),
-            ("Diseño de solución", "design"),
-            ("Implementación", "implementation"),
-            ("Pruebas", "qa"),
-            ("Documentación", "documentation")
-        ]
-        
-        # Filtrar y ordenar según tipo detectado
-        if detected_type == "implementation":
-            selected_indices = [0, 1, 2, 3, 4]
-        elif detected_type == "research":
-            selected_indices = [0, 1, 3, 5]
-        elif detected_type == "qa":
-            selected_indices = [4]
+        """Crea un plan lineal mínimo con identificadores consistentes."""
+        lower = objective.lower()
+        if "implementar" in lower or "corregir" in lower:
+            templates = [("Analizar alcance", "analysis"), ("Diseñar cambio", "design"), ("Implementar cambio", "implementation"), ("Verificar cambio", "qa")]
+        elif "investigar" in lower:
+            templates = [("Definir criterios", "analysis"), ("Investigar fuentes", "research"), ("Sintetizar hallazgos", "documentation")]
+        elif "verificar" in lower or "probar" in lower:
+            templates = [("Verificar resultado", "qa")]
         else:
-            selected_indices = list(range(len(task_templates)))
-            
-        # Crear tareas
-        for idx in selected_indices:
-            name, task_type = task_templates[idx]
-            task = Task(
-                id=f"task_{idx+1}_{datetime.now().strftime('%H%M%S')}",
-                description=f"{name}: {objective}",
+            templates = [("Analizar objetivo", "analysis"), ("Producir resultado", "implementation"), ("Verificar resultado", "qa")]
+
+        now = _now()
+        prefix = uuid.uuid4().hex[:10]
+        tasks: List[Task] = []
+        previous_id: Optional[str] = None
+        for index, (label, task_type) in enumerate(templates, start=1):
+            task_id = f"task-{prefix}-{index}"
+            tasks.append(Task(
+                id=task_id,
+                description=f"{label}: {objective}",
                 type=task_type,
-                priority=len(selected_indices) - idx,
-                dependencies=[f"task_{i+1}_{datetime.now().strftime('%H%M%S')}" 
-                            for i in range(idx) if idx > 0],
-                assigned_agent=None,  # Se asignará durante el enrutamiento
+                priority=len(templates) - index + 1,
+                dependencies=[previous_id] if previous_id else [],
+                assigned_agent=None,
                 status=TaskStatus.PROPOSED,
                 constraints=[],
                 metadata={"source_objective": objective},
-                created_at=timestamp,
-                updated_at=timestamp
-            )
-            tasks.append(task)
-            
+                created_at=now,
+                updated_at=now,
+            ))
+            previous_id = task_id
+        self.save_tasks(tasks)
         return tasks
 
     def route_task(self, task: Task) -> RouteDecision:
-        """Seleccionar el agente especializado más adecuado para una tarea"""
-        best_match = self._match_agent_by_capability(task)
-        
-        # Aplicar razonamiento neurosimbólico si está disponible
-        if self.reasoning_engine and task.type in ["design", "analysis"]:
-            symbolic_decision = self._evaluar_con_simbolico(task)
-            if symbolic_decision:
-                return symbolic_decision
-                
-        return RouteDecision(
-            agent=best_match["id"],
-            confidence=best_match["confidence"],
-            reason=best_match["reason"],
-            constraints_applied=[]
-        )
-
-    def _match_agent_by_capability(self, task: Task) -> Dict:
-        """Encontrar agente con capacidades que mejor coinciden con la tarea"""
-        best_match = {
-            "id": "orchestrator",  # Valor por defecto
-            "confidence": 0.5,
-            "reason": "Asignación por defecto"
-        }
-        
-        # Coincidencia directa de tipos preferidos
+        best: Dict[str, Any] = {"id": "orchestrator", "score": 0.25, "reasons": ["fallback"]}
+        words = set(re.findall(r"\b\w+\b", task.description.lower()))
         for agent in self.swarm_config:
-            preferred_types = agent.get("preferredTaskTypes", [])
-            capabilities = agent.get("capabilities", [])
-            
-            # Calcular puntuación de coincidencia
-            score = 0
+            score = 0.0
             reasons = []
-            
-            if task.type in preferred_types:
-                score += 0.5
-                reasons.append(f"Tipo {task.type} en tipos preferidos")
-                
-            # Verificar si las restricciones de la tarea pueden manejarse con las capacidades del agente
-            capability_keywords = [c.lower() for c in capabilities]
-            task_keywords = re.findall(r'\b\w+\b', task.description.lower())
-            
-            overlap = set(task_keywords) & set(capability_keywords)
-            score += len(overlap) * 0.1
+            if task.type in agent.get("preferredTaskTypes", []):
+                score += 0.7
+                reasons.append(f"tipo {task.type}")
+            overlap = words & set(agent.get("capabilities", []))
+            score += min(len(overlap) * 0.1, 0.2)
             if overlap:
-                reasons.append(f"Palabras clave coincidentes: {overlap}")
-                
-            # Mejorar puntuación basada en especialidad
-            if "specialty" in agent:
-                specialty_words = agent["specialty"].lower().split()
-                overlap_spec = set(task_keywords) & set(specialty_words)
-                score += len(overlap_spec) * 0.15
-                if overlap_spec:
-                    reasons.append(f"Especialidad coincidente: {overlap_spec}")
-                    
-            if score > best_match["confidence"]:
-                best_match = {
-                    "id": agent["id"],
-                    "confidence": min(score, 1.0),
-                    "reason": "; ".join(reasons) if reasons else "Coincidencia por capacidades"
-                }
-                
-        return best_match
+                reasons.append("capacidades " + ", ".join(sorted(overlap)))
+            if score > best["score"]:
+                best = {"id": agent["id"], "score": score, "reasons": reasons}
+        return RouteDecision(str(best["id"]), min(float(best["score"]), 1.0), "; ".join(best["reasons"]), list(task.constraints))
 
-    def _evaluar_con_simbolico(self, task: Task) -> Optional[RouteDecision]:
-        """Usar razonamiento neurosimbólico para mejorar decisión de enrutamiento"""
-        if not self.reasoning_engine or not REASONING_AVAILABLE:
-            return None
-            
-        # Usar motor simbólico para validar consistencia de la tarea
-        try:
-            # Verificar si hay dependencias cíclicas (usando NetworkX)
-            graph = GraphAnalyzer()
-            for dep in task.dependencies:
-                graph.add_nodes([task.id, dep])
-                graph.add_edges([(dep, task.id)])
-                
-            if graph.detect_cycles():
-                return RouteDecision(
-                    agent="orchestrator",
-                    confidence=0.9,
-                    reason="Detección de dependencias cíclicas - requiere intervención del orquestador",
-                    constraints_applied=["dependencia_ciclica"]
-                )
-                
-            return None  # Si no se encuentran problemas, usar lógica normal de enrutamiento
-            
-        except Exception as e:
-            # En caso de error en razonamiento simbólico, retornar a lógica normal
-            return None
-
-    def verify_task_result(self, task: Task, result: Any) -> Dict:
-        """Verificar el resultado de una tarea ejecutada"""
-        verification = {
-            "status": "verified",
-            "confidence": 0.8,
-            "details": [],
-            "recommendations": []
-        }
-        
-        # Verificación básica: ¿el resultado está presente?
+    def verify_task_result(self, task: Task, result: Any) -> Dict[str, Any]:
+        check: Dict[str, Any] = {"status": "verified", "confidence": 0.8, "details": [], "recommendations": []}
         if result is None:
-            verification["status"] = "failed"
-            verification["confidence"] = 0.1
-            verification["details"].append("No se produjo resultado")
-            return verification
-            
-        # Verificación específica según tipo de tarea
-        if task.type == "implementation":
-            # Verificar que existan pruebas
-            if isinstance(result, dict) and result.get("tests_passed"):
-                verification["confidence"] = 0.9
-                verification["details"].append("Pruebas pasaron correctamente")
-            elif "tests failed" in str(result).lower():
-                verification["status"] = "needs_review"
-                verification["confidence"] = 0.3
-                verification["details"].append("Algunas pruebas fallaron")
-                
-        elif task.type == "research":
-            # Verificar calidad de fuentes
-            if isinstance(result, dict) and result.get("sources_verified"):
-                verification["confidence"] = 0.85
-                verification["details"].append("Fuentes verificadas")
-                
-        elif task.type == "qa":
-            # Verificar evidencia de testing
-            if isinstance(result, dict) and result.get("smoke_test_passed"):
-                verification["confidence"] = 0.95
-                verification["details"].append("Test de humo pasado")
-                
-        return verification
+            check.update(status="failed", confidence=0.0)
+            check["details"].append("El ejecutor no produjo resultado")
+        elif isinstance(result, dict) and result.get("success") is False:
+            check.update(status="failed", confidence=0.95)
+            check["details"].append("El ejecutor declaró el resultado fallido")
+        elif task.type == "implementation" and not (isinstance(result, dict) and result.get("tests_passed") is True):
+            check.update(status="needs_review", confidence=0.4)
+            check["recommendations"].append("Adjuntar evidencia de pruebas")
+        elif task.type == "qa" and not (isinstance(result, dict) and (result.get("tests_passed") is True or result.get("smoke_test_passed") is True)):
+            check.update(status="needs_review", confidence=0.4)
+            check["recommendations"].append("Adjuntar evidencia de QA")
+        return check
 
-    def generate_task_report(self, tasks: List[Task]) -> Dict:
-        """Generar reporte completo del sistema de tareas"""
-        report = {
-            "timestamp": datetime.now().isoformat(),
-            "total_tasks": len(tasks),
-            "status_distribution": {},
-            "agent_assignments": {},
-            "dependencies": {},
-            "issues": []
+    @staticmethod
+    def _serialize_task(task: Task) -> Dict[str, Any]:
+        data = asdict(task)
+        data["status"] = task.status.value
+        return data
+
+    @staticmethod
+    def _deserialize_task(data: Dict[str, Any]) -> Task:
+        item = dict(data)
+        item["status"] = TaskStatus(item["status"])
+        return Task(**item)
+
+    def save_tasks(self, tasks: Iterable[Task]) -> None:
+        if self.store_path is None:
+            return
+        self.store_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"version": 1, "updated_at": _now(), "tasks": [self._serialize_task(task) for task in tasks]}
+        fd, temp_name = tempfile.mkstemp(prefix="tasks-", suffix=".tmp", dir=str(self.store_path.parent), text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2, ensure_ascii=False, default=str)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_name, self.store_path)
+        except Exception:
+            Path(temp_name).unlink(missing_ok=True)
+            raise
+
+    def load_tasks(self) -> List[Task]:
+        if self.store_path is None or not self.store_path.exists():
+            return []
+        with self.store_path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        return [self._deserialize_task(item) for item in payload.get("tasks", [])]
+
+    def mark_blocked(
+        self,
+        task: Task,
+        reason: str,
+        required_action: str,
+        *,
+        evidence: Optional[List[str]] = None,
+        alternatives: Optional[List[str]] = None,
+        risks: Optional[List[str]] = None,
+        automatic_next: Optional[str] = None,
+        category: str = "execution",
+        request_human_review: bool = True,
+    ) -> Dict[str, Any]:
+        previous_status = task.status.value
+        task.status = TaskStatus.BLOCKED
+        task.updated_at = _now()
+        block = {
+            "task_id": task.id,
+            "category": category,
+            "reason": reason,
+            "evidence": list(evidence or [reason]),
+            "alternatives": list(alternatives or [required_action]),
+            "risks": list(
+                risks
+                or ["La tarea y cualquier dependiente no podrán completarse"]
+            ),
+            "required_action": required_action,
+            "automatic_next": automatic_next
+            or "Reintentar automáticamente al volver a ejecutar el plan",
+            "state_reached": previous_status,
+            "blocked_at": task.updated_at,
         }
-        
-        # Distribución de estados
-        for status in TaskStatus:
-            count = len([t for t in tasks if t.status == status])
-            report["status_distribution"][status.value] = count
-            
-        # Asignaciones por agente
+        task.metadata["human_block"] = block
+        if request_human_review and self.human_gate is not None:
+            review = self.human_gate.submit_for_review(task.description, actor="task-router", metadata={"task_id": task.id, "reason": reason})
+            block["review_id"] = review.review_id
+        return block
+
+    def resolve_block(self, task: Task, resolution: str) -> None:
+        task.metadata["block_resolution"] = {"resolution": resolution, "resolved_at": _now()}
+        task.metadata.pop("human_block", None)
+        task.status = TaskStatus.PROPOSED
+        task.updated_at = _now()
+
+    def _refresh_blocked_tasks(self, tasks: List[Task]) -> bool:
+        """Reanudar bloqueos que ya tienen una resolución comprobable."""
+        by_id = {task.id: task for task in tasks}
+        changed = False
+
         for task in tasks:
-            if task.assigned_agent:
-                if task.assigned_agent not in report["agent_assignments"]:
-                    report["agent_assignments"][task.assigned_agent] = 0
-                report["agent_assignments"][task.assigned_agent] += 1
-                
-        # Identificar problemas
-        blocked_tasks = [t for t in tasks if t.status == TaskStatus.BLOCKED]
-        for task in blocked_tasks:
-            report["issues"].append({
-                "task_id": task.id,
-                "issue": "Bloqueada",
-                "description": task.description,
-                "reason": task.metadata.get("block_reason", "Desconocido")
-            })
-            
-        # Detectar ciclos en dependencias usando razonamiento simbólico
-        if REASONING_AVAILABLE:
-            try:
-                graph = GraphAnalyzer()
-                for task in tasks:
-                    graph.add_nodes([task.id])  # Añadir nodo
-                    for dep in task.dependencies:
-                        if dep in [t.id for t in tasks]:
-                            graph.add_edges([(dep, task.id)])
-                            
-                cycles = graph.detect_cycles()
-                if cycles:
-                    report["issues"].append({
-                        "type": "dependency_cycle",
-                        "details": f"Ciclos detectados en dependencias: {cycles}"
-                    })
-            except Exception:
-                pass
-                
-        return report
+            if task.status != TaskStatus.BLOCKED:
+                continue
+            block = task.metadata.get("human_block", {})
+
+            if block.get("category") == "dependency":
+                dependencies = [by_id.get(dep) for dep in task.dependencies]
+                if dependencies and all(
+                    dependency is not None
+                    and dependency.status == TaskStatus.COMPLETED
+                    for dependency in dependencies
+                ):
+                    self.resolve_block(
+                        task,
+                        "Las dependencias terminaron correctamente",
+                    )
+                    changed = True
+                continue
+
+            review_id = block.get("review_id")
+            if not review_id or self.human_gate is None:
+                continue
+            review = self.human_gate.get_review_by_id(review_id)
+            if review is None:
+                continue
+            if review.status == "approved":
+                self.resolve_block(
+                    task,
+                    review.reason or "Aprobado por revisión humana",
+                )
+                changed = True
+            elif review.status == "rejected":
+                block["human_decision"] = {
+                    "status": "rejected",
+                    "reason": review.reason,
+                }
+                block["automatic_next"] = (
+                    "No se reanudará hasta recibir una nueva resolución explícita"
+                )
+
+        return changed
+
+    def execute_available(
+        self,
+        tasks: List[Task],
+        executors: Optional[Dict[str, Callable[[Task], Any]]] = None,
+        verifier: Optional[Callable[[Task, Any], Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Ejecuta tareas listas; conserva bloqueos y permite reanudar después."""
+        available_executors = {**self.executors, **(executors or {})}
+        by_id = {task.id: task for task in tasks}
+        self._refresh_blocked_tasks(tasks)
+        progressed = True
+        while progressed:
+            progressed = False
+            if self._refresh_blocked_tasks(tasks):
+                progressed = True
+            for task in sorted(tasks, key=lambda item: item.priority, reverse=True):
+                if task.status != TaskStatus.PROPOSED:
+                    continue
+                missing = [dependency for dependency in task.dependencies if dependency not in by_id]
+                if missing:
+                    self.mark_blocked(
+                        task,
+                        f"Dependencias inexistentes: {missing}",
+                        "Corregir el plan",
+                        evidence=[f"IDs no encontrados en el plan: {missing}"],
+                        alternatives=[
+                            "Agregar las tareas faltantes",
+                            "Eliminar o reemplazar las dependencias inválidas",
+                        ],
+                        risks=["El plan no representa un grafo ejecutable completo"],
+                        category="plan",
+                    )
+                    progressed = True
+                    continue
+                states = [by_id[dependency].status for dependency in task.dependencies]
+                if any(state in {TaskStatus.FAILED, TaskStatus.BLOCKED} for state in states):
+                    failed_dependencies = [
+                        dependency
+                        for dependency in task.dependencies
+                        if by_id[dependency].status
+                        in {TaskStatus.FAILED, TaskStatus.BLOCKED}
+                    ]
+                    self.mark_blocked(
+                        task,
+                        "Una dependencia no terminó correctamente",
+                        "Resolver la dependencia",
+                        evidence=[
+                            "Dependencias detenidas: "
+                            + ", ".join(
+                                f"{dependency}={by_id[dependency].status.value}"
+                                for dependency in failed_dependencies
+                            )
+                        ],
+                        alternatives=[
+                            "Resolver o reintentar la dependencia",
+                            "Reformular el plan para retirar esa dependencia",
+                        ],
+                        risks=["Ejecutar ahora violaría el orden de dependencias"],
+                        automatic_next=(
+                            "Reanudar automáticamente cuando todas las "
+                            "dependencias estén completed"
+                        ),
+                        category="dependency",
+                        request_human_review=False,
+                    )
+                    progressed = True
+                    continue
+                if not all(state == TaskStatus.COMPLETED for state in states):
+                    continue
+
+                decision = self.route_task(task)
+                task.assigned_agent = decision.agent
+                executor = available_executors.get(
+                    decision.agent
+                ) or available_executors.get(task.type)
+                if executor is None:
+                    self.mark_blocked(
+                        task,
+                        f"No hay ejecutor para {decision.agent}/{task.type}",
+                        "Asignar un ejecutor",
+                        evidence=[
+                            f"Ejecutor buscado por agente: {decision.agent}",
+                            f"Ejecutor alternativo buscado por tipo: {task.type}",
+                        ],
+                        alternatives=[
+                            f"Registrar un ejecutor para {decision.agent}",
+                            f"Registrar un ejecutor para el tipo {task.type}",
+                            "Reasignar la tarea a un agente disponible",
+                        ],
+                        risks=["La tarea permanecerá detenida sin producir resultado"],
+                        category="executor",
+                    )
+                    progressed = True
+                    continue
+
+                task.status = TaskStatus.IN_PROGRESS
+                task.updated_at = _now()
+                try:
+                    result = executor(task)
+                except Exception as exc:
+                    task.status = TaskStatus.FAILED
+                    task.metadata["execution_error"] = f"{type(exc).__name__}: {exc}"
+                    task.updated_at = _now()
+                    progressed = True
+                    continue
+
+                task.status = TaskStatus.PENDING_VERIFICATION
+                check = (verifier or self.verify_task_result)(task, result)
+                task.metadata["result"] = result
+                task.metadata["verification"] = check
+                task.status = TaskStatus.COMPLETED if check.get("status") == "verified" else TaskStatus.FAILED
+                task.updated_at = _now()
+                if task.status == TaskStatus.COMPLETED and self.memory_recorder is not None:
+                    task.metadata["memory_entry_id"] = self.memory_recorder.record_task_result(task, result, check)["id"]
+                progressed = True
+            self.save_tasks(tasks)
+        return self.generate_task_report(tasks)
+
+    def generate_task_report(self, tasks: List[Task]) -> Dict[str, Any]:
+        task_ids = {task.id for task in tasks}
+        graph = GraphAnalyzer()
+        graph.add_nodes(list(task_ids))
+        for task in tasks:
+            graph.add_edges([(dependency, task.id) for dependency in task.dependencies if dependency in task_ids])
+        return {
+            "timestamp": _now(),
+            "total_tasks": len(tasks),
+            "status_distribution": {status.value: sum(task.status == status for task in tasks) for status in TaskStatus},
+            "cycles": graph.detect_cycles(),
+            "human_blocks": [task.metadata["human_block"] for task in tasks if "human_block" in task.metadata],
+        }
 
 
-# Función principal de demostración
-def main():
-    """Demostrar el funcionamiento del sistema de enrutamiento"""
-    print("=== Sistema de Enrutamiento de Tareas ===\n")
-    
-    # Crear enrutador
-    router = TaskRouter()
-    
-    # Objetivo de prueba
-    objetivo = "Implementar un sistema de autenticación seguro para el swarm"
-    
-    print(f"Objetivo: {objetivo}\n")
-    
-    # Descomponer objetivo en tareas
-    tasks = router.decompose_objective(objetivo)
-    print(f"Tareas generadas: {len(tasks)}\n")
-    
-    # Mostrar tareas
-    for task in tasks:
-        print(f"  - {task.id}: {task.description[:60]}... (tipo: {task.type}, prioridad: {task.priority})")
-    
-    # Enrutar tareas
-    print("\n--- Enrutamiento de tareas ---")
-    for task in tasks:
-        decision = router.route_task(task)
-        task.assigned_agent = decision.agent
-        task.status = TaskStatus.IN_PROGRESS
-        print(f"  {task.id} -> {decision.agent} (confianza: {decision.confidence:.2f})")
-        print(f"    Razón: {decision.reason}")
-    
-    # Simular resultados
-    print("\n--- Verificación de resultados ---")
-    for task in tasks:
-        # Simular resultado
-        if task.type == "implementation":
-            result = {"tests_passed": True, "code": "..." }
-        elif task.type == "qa":
-            result = {"smoke_test_passed": True}
-        elif task.type == "research":
-            result = {"sources_verified": True}
-        else:
-            result = {"completed": True}
-            
-        verification = router.verify_task_result(task, result)
-        task.status = TaskStatus.COMPLETED if verification["status"] == "verified" else TaskStatus.FAILED
-        print(f"  {task.id} -> {verification['status']} (confianza: {verification['confidence']:.2f})")
-        for detail in verification["details"]:
-            print(f"    - {detail}")
-    
-    # Generar reporte
-    print("\n--- Reporte Final ---")
-    report = router.generate_task_report(tasks)
-    print(json.dumps(report, indent=2))
-    
-    print("\n✅ Demostración completada")
-
-
-if __name__ == "__main__":
-    main()
+__all__ = ["RouteDecision", "Task", "TaskRouter", "TaskStatus"]

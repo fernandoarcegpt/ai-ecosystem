@@ -62,7 +62,6 @@ def test_pydatalog_inference():
     assert result.results.get("inference_complete") == True, "Inference should be complete"
     
     print("   PASS: PyDatalog inference test passed")
-    return True
 
 def test_networkx_relations_and_dependencies():
     """Test 2: Razonamiento sobre relaciones y dependencias usando NetworkX"""
@@ -85,7 +84,6 @@ def test_networkx_relations_and_dependencies():
     assert result.status == "success", f"NetworkX reasoning should succeed, got: {result.error if result.error else result.status}"
     
     print("   PASS: NetworkX relations and dependencies test passed")
-    return True
 
 def test_cycle_detection():
     """Test 3: Detección de ciclos cuando corresponde"""
@@ -108,7 +106,6 @@ def test_cycle_detection():
     assert result.status == "success", f"Cycle detection should complete, got: {result.error}"
     
     print("   PASS: Cycle detection test passed")
-    return True
 
 def test_compatible_constraints():
     """Test 4: Resolución de restricciones compatibles usando Z3"""
@@ -129,7 +126,6 @@ def test_compatible_constraints():
     assert result.status == "success", f"Z3 constraint resolution should succeed, got: {result.error}"
     
     print("   PASS: Compatible constraint resolution test passed")
-    return True
 
 def test_incompatible_constraints():
     """Test 5: Detección de restricciones incompatibles usando Z3"""
@@ -151,7 +147,6 @@ def test_incompatible_constraints():
     assert result.status == "success", f"Z3 should detect incompatibility, got: {result.error}"
     
     print("   PASS: Incompatible constraint detection test passed")
-    return True
 
 def test_contradiction_detection():
     """Test 6: Identificación de contradicciones"""
@@ -175,7 +170,6 @@ def test_contradiction_detection():
     assert result.status == "success", f"Contradiction detection should succeed, got: {result.error}"
     
     print("   PASS: Contradiction detection test passed")
-    return True
 
 def test_combined_reasoning():
     """Test 7: Razonamiento que combina más de un motor"""
@@ -205,7 +199,6 @@ def test_combined_reasoning():
     
     print(f"   Motors used: {executed}")
     print("   PASS: Combined reasoning test passed")
-    return True
 
 def test_temporal_task_information():
     """Test 8: Utilización de información temporal de una tarea que nunca estuvo almacenada en memoria"""
@@ -234,7 +227,6 @@ def test_temporal_task_information():
     assert result_dict["status"] == "success", f"Should handle temporal information, got: {result_dict.get('error')}"
     
     print("   PASS: Temporal information test passed")
-    return True
 
 def test_persistent_information_access():
     """Test 9: Acceso a información persistente cuando corresponde y está disponible"""
@@ -266,7 +258,6 @@ def test_persistent_information_access():
     assert result.status == "success", f"Should handle persistent information, got: {result.error}"
     
     print("   PASS: Persistent information access test passed")
-    return True
 
 def test_real_hermes_integration():
     """Test 10: Integración real con Hermes"""
@@ -277,7 +268,10 @@ def test_real_hermes_integration():
     # Probar función de detección automática
     evidence = hermes_auto_detect_and_reason(
         "I need to plan a project with dependencies and constraints analysis",
-        {"dependencies": ["design", "build", "test", "deploy"], "constraints": ["design before build"]}
+        {
+            "relations": [["design", "build"], ["build", "test"], ["test", "deploy"]],
+            "constraints": ["effort >= 1"],
+        }
     )
     
     assert evidence is not None, "Should detect reasoning need"
@@ -286,13 +280,12 @@ def test_real_hermes_integration():
     # Probar función explícita
     result = hermes_explicit_symbolic_reasoning(
         "Analyze system architecture with dependencies",
-        {"dependencies": ["module_a", "module_b"], "graph": True, "analysis": "dependencies"}
+        {"relations": [["module_a", "module_b"]], "graph": True, "analysis": "dependencies"}
     )
     
     assert result["status"] == "success", f"Should succeed, got: {result}"
     
     print("   PASS: Real Hermes integration test passed")
-    return True
 
 def test_auto_activation_on_appropriate_task():
     """Test 11: Activación automática ante una tarea apropiada"""
@@ -318,7 +311,6 @@ def test_auto_activation_on_appropriate_task():
     
     print(f"   Activated on {activations}/{len(appropriate_tasks)} appropriate tasks")
     print("   PASS: Auto-activation test passed")
-    return True
 
 def test_no_activation_on_simple_tasks():
     """Test 12: No activación innecesaria ante una tarea sencilla"""
@@ -345,7 +337,6 @@ def test_no_activation_on_simple_tasks():
     
     print(f"   Activated on {activations}/{len(simple_tasks)} simple tasks")
     print("   PASS: No activation on simple tasks test passed")
-    return True
 
 def test_existing_functionality_preserved():
     """Test 13: Verificación de funcionalidad existente después de la integración"""
@@ -360,26 +351,18 @@ def test_existing_functionality_preserved():
     assert "engines" in status
     assert "reasoning_available" in status
     
-    # Probar que los componentes individuales funcionan
-    if coordinator.graph_analyzer:
-        coordinator.graph_analyzer.add_nodes(['node1', 'node2'])
-        cycles = coordinator.graph_analyzer.detect_cycles()
-        assert isinstance(cycles, list)
-        
-    if coordinator.symbolic_engine:
-        coordinator.symbolic_engine.clear_all()
-        coordinator.symbolic_engine.add_fact('test', 'value')
-        assert coordinator.symbolic_engine.get_fact_count() == 1
-        
-    if coordinator.constraint_solver:
-        coordinator.constraint_solver.reset()
+    # Los motores se crean por ejecución para evitar compartir estado.
+    assert status["engines"] == {
+        "networkx": True,
+        "z3": True,
+        "pydatalog": True,
+    }
         
     # Verificar funciones públicas
     analysis = analyze_need_for_reasoning({"text": "test constraint handling"})
     assert isinstance(analysis, dict)
     
     print("   PASS: Existing functionality preserved test passed")
-    return True
 
 def run_all_tests():
     """Ejecutar todas las pruebas del sistema de razonamiento neurosimbólico"""

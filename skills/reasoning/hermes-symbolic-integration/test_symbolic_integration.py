@@ -81,11 +81,13 @@ def test_symbolic_integration():
     
     if passed == total:
         print("🎉 All tests passed! Integration is working correctly.")
-        return True
     else:
         print("❌⚠  Some tests failed. Check configuration.")
-        return False
+    assert passed == total
 
 if __name__ == "__main__":
-    success = test_symbolic_integration()
-    sys.exit(0 if success else 1)
+    try:
+        test_symbolic_integration()
+    except AssertionError:
+        sys.exit(1)
+    sys.exit(0)
