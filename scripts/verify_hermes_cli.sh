@@ -121,44 +121,52 @@ export HERMES_NEUROSYMBOLIC_PROOF_LOG="$proof_log"
 verify_engine() {
   local engine="$1"
   local prompt="$2"
+  local expected_output="${3:-}"
   : >"$proof_log"
   : >"$output_log"
   if ! hermes chat -q "$prompt" >"$output_log" 2>&1; then
     echo "ERROR: hermes chat falló al verificar $engine" >&2
-    sed -n '1,160p' "$output_log" >&2
+    sed -n '1,200p' "$output_log" >&2
     return 1
   fi
 
   for required_event in detector_decision tool_required tool_started runtime_engine_inventory engine_result_observed tool_completed output_replaced; do
     if ! grep -q "\"event\": \"$required_event\"" "$proof_log"; then
       echo "ERROR: falta evento $required_event al verificar $engine" >&2
-      sed -n '1,200p' "$proof_log" >&2
+      sed -n '1,240p' "$proof_log" >&2
       return 1
     fi
   done
 
   if ! grep -q "\"engine\": \"$engine\"" "$proof_log"; then
     echo "ERROR: la herramienta no registró el motor $engine" >&2
-    sed -n '1,200p' "$proof_log" >&2
+    sed -n '1,240p' "$proof_log" >&2
     return 1
   fi
   if ! grep -q "\"status\": \"success\"" "$proof_log"; then
     echo "ERROR: no se registró éxito del motor $engine" >&2
-    sed -n '1,200p' "$proof_log" >&2
+    sed -n '1,240p' "$proof_log" >&2
     return 1
   fi
   if ! grep -Eq '[1-9][0-9]* tool calls?' "$output_log"; then
     echo "ERROR: la sesión no contabilizó una llamada de herramienta" >&2
-    sed -n '1,200p' "$output_log" >&2
+    sed -n '1,240p' "$output_log" >&2
     return 1
   fi
-  echo "PASS: $engine detectado y ejecutado mediante tool call oficial"
+  if [[ -n "$expected_output" ]] && ! grep -Eiq "$expected_output" "$output_log"; then
+    echo "ERROR: la salida de $engine no contiene evidencia esperada: $expected_output" >&2
+    sed -n '1,240p' "$output_log" >&2
+    return 1
+  fi
+  echo "PASS: $engine detectado, formalizado y ejecutado mediante tool call oficial"
 }
 
 verify_engine "networkx" "Detecta el ciclo del grafo A -> B -> C -> A"
 verify_engine "z3" "Resuelve las restricciones x > 10 y x < 5"
 verify_engine "pydatalog" "Ana es madre de Luis y Luis es padre de Marta. ¿Es Ana ancestro de Marta?"
+verify_engine "pydatalog" "Hechos: active(alice). Regla: si active(X) entonces eligible(X). Deduce si alice es elegible." 'eligible.*alice|alice.*eligible'
 verify_engine "z3_temporal" "Resuelve estas restricciones temporales: la tarea A dura 2 horas y la tarea B dura 3 horas; A debe terminar antes de B."
+verify_engine "pgmpy" "Usa Bayes con una variable binaria A. P(A=no)=0.7 y P(A=yes)=0.3. Calcula la distribución posterior de A sin evidencia."
 
 : >"$proof_log"
 : >"$output_log"
@@ -169,8 +177,8 @@ if grep -q '"event": "tool_started"' "$proof_log"; then
 fi
 if ! grep -Eq '0 tool calls?' "$output_log"; then
   echo "ERROR: no se pudo comprobar cero tool calls para texto ordinario" >&2
-  sed -n '1,200p' "$output_log" >&2
+  sed -n '1,240p' "$output_log" >&2
   exit 1
 fi
 
-echo "PASS: integración Hermes CLI extremo a extremo (runtime completo + 4 motores E2E + control negativo)"
+echo "PASS: integración Hermes CLI extremo a extremo (runtime completo + detección/formalización legacy y extendida + control negativo)"
