@@ -1,3 +1,4 @@
+-r requirements-reasoning-extra.txt
 networkx==3.6.1
 pyDatalog==0.22.4
 PyYAML==6.0.3
