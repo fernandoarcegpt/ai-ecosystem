@@ -1,44 +1,138 @@
-# Integration Summary – Auto‑index & CBM Hook
+# Integration Summary
 
-## ✅ Critical Verification Summary
+## Resumen
 
-All final criteria have been confirmed, ensuring seamless Knowledge‑Broker (CBM) integration without duplication.
+La integración actual de `ai-ecosystem` combina dos líneas:
 
-| Check | Status | Details |
-|-------|--------|---------|
-| **pre_llm_call hook** | ✅ Registered | `/hooks/.hooks` contains `pre_llm_call: 1` |
-| **auto_index** | ✅ Enabled | `codebase-memory-mcp config get auto_index` → `true` |
-| **ai‑ecosystem indexed** | ✅ Present | `codebase-memory-mcp cli list_projects` lists `ai-ecosystem` (ID: `es1729c`) |
-| **auto_watch** | ✅ Active | `codebase-memory-mcp config get auto_watch` → `true` |
-| **CBM query** | ✅ Functional | `codebase-memory-mcp cli question --project "ai-ecosystem" --question "What is the codebase architecture?"` returns up‑to‑date structural description without manual CLI interaction |
+1. **Memoria estructural de código** con CBM / `codebase-memory-mcp`.
+2. **Razonamiento neurosimbólico** con Hermes hook + NetworkX + Z3 + PyDatalog.
 
-## 📦 Verification Commands Used
+Ambas son complementarias.
 
-```bash
-# Verify pre_llm_call hook registration
-grep -R "pre_llm_call" /hooks/.hooks
-
-# Confirm auto_index is enabled
-codebase-memory-mcp config get auto_index
-
-# List indexed projects
-codebase-memory-mcp cli list_projects
-
-# Enable auto_watch (if not already)
-codebase-memory-mcp config set auto_watch true
-
-# Test CBM query for ai‑ecosystem structure
-codebase-memory-mcp cli question --project "ai-ecosystem" --question "What is the codebase architecture?"
+```text
+CBM responde: ¿dónde está y cómo se relaciona el código?
+Neurosymbolic engine responde: ¿qué se puede verificar lógicamente?
 ```
 
-## 🎯 Outcome
+## Integración Hermes
 
-- **No manual CLI required** for CBM‑driven knowledge retrieval.
-- Hermes automatically invokes CBM before LLM calls via `pre_llm_call`.
-- Updated index is fetched on‑the‑fly, guaranteeing fresh structural context.
-- All verification steps pass, confirming a **complete and stable integration**.
+El plugin neurosimbólico declara `pre_llm_call`.
 
-## 📁 Artifacts
+Flujo:
 
-- Integration verification report: `docs/integration_summary.md` (this file)
-- Updated configuration files stored in `.hermes/` (no manual edits needed).
+```text
+mensaje usuario
+→ Hermes pre_llm_call
+→ HermesSymbolIntegration
+→ ProblemExtractor
+→ SymbolicProblem
+→ motor simbólico
+→ evidencia
+→ contexto LLM
+```
+
+## Integración CBM
+
+Scripts disponibles:
+
+```bash
+pnpm run cbm:install
+pnpm run cbm:index
+QUERY="texto" pnpm run cbm:search
+QUERY="nombre" pnpm run cbm:graph
+```
+
+CBM se usa para:
+
+- indexar el repo;
+- buscar código;
+- navegar relaciones;
+- entregar contexto estructural a Claude/Hermes.
+
+## Integración neurosimbólica
+
+Motores actuales:
+
+| Motor | Uso |
+|---|---|
+| NetworkX | relaciones, dependencias, ciclos, orden topológico |
+| Z3 | restricciones, asignaciones, satisfacibilidad |
+| PyDatalog | hechos, reglas, inferencias |
+| combined | ejecución básica de varios motores |
+| human_review | ambigüedad o formalización incierta |
+
+## Verificaciones recomendadas
+
+### Núcleo neurosimbólico
+
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_neurosymbolic_corrected.py
+```
+
+### Semantic router
+
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
+```
+
+### Hermes plugin
+
+```bash
+npm run test:hermes-cli
+```
+
+### CBM
+
+```bash
+pnpm run cbm:index
+QUERY="reasoning" pnpm run cbm:search
+QUERY="engine" pnpm run cbm:graph
+```
+
+## Estado actual
+
+| Integración | Estado |
+|---|---|
+| Hermes hook `pre_llm_call` | Implementado |
+| Plugin neurosimbólico | Implementado |
+| NetworkX | Implementado |
+| Z3 | Implementado |
+| PyDatalog | Implementado |
+| Semantic Router | Implementado |
+| Combined mode | Implementado básico |
+| Human review | Implementado básico |
+| CBM | Configurado |
+| Kùzu/LlamaIndex | Configurado para grafo/conocimiento |
+| Base lógica persistente | Pendiente |
+| Contradicciones persistentes | Pendiente |
+| Identidad de entidades | Pendiente |
+
+## Limitación importante
+
+No usar esta integración como prueba de que ya existe una memoria lógica completa.
+
+Lo que existe:
+
+```text
+contexto estructural + razonamiento por consulta
+```
+
+Lo que falta:
+
+```text
+conocimiento lógico persistente y acumulativo
+```
+
+## Próxima integración recomendada
+
+```text
+CBM / Kùzu / Knowledge Broker
+  ↓
+Canonical Logical Knowledge Base
+  ↓
+FactStore + RuleStore + EntityIdentity + ContradictionEngine
+  ↓
+Neurosymbolic Engine
+  ↓
+ReasoningTraceStore
+```
