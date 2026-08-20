@@ -1,212 +1,341 @@
-# Architecture Documentation
+# Architecture
 
-## Table of Contents
-1. [Project Overview](#project-overview)
-2. [Directory Structure](#directory-structure)
-3. [Core Components](#core-components)
-4. [Skill Ecosystem](#skill-ecosystem)
-5. [Configuration & Environment](#configuration--environment)
-6. [Dependency Management](#dependency-management)
-7. [Build, Test & Deployment](#build-test--deployment)
-8. [Orchestration & Workflow](#orchestration--workflow)
-9. [Memory & Learning System](#memory--learning-system)
-10. [OpenSpec Integration](#openspec-integration)
-11. [Maintenance & Extensibility](#maintenance--extensibility)
-12. [Troubleshooting](#troubleshooting)
-13. [Glossary & References](#glossary--references)
+## Estado vigente
 
----
+`ai-ecosystem` es un workspace de **Hermes Agent + Claude Code** con integración neurosimbólica. El proyecto combina:
 
-### Project Overview
-The repository `ai-ecosystem` is a **Hermes Agent** workspace that combines:
-- **Automation** of AI skill execution (trading, quant analysis, data verification)
-- **Memory & learning** mechanisms for persistent knowledge
-- **Orchestration** via `orchestrator-main` to coordinate multi‑step tasks
-- **OpenSpec** spec generation for automated API contract validation
-- **CLI tooling** (Claude Code, npm scripts) for developer interaction
+- Orquestación con Hermes Agent.
+- Configuración y flujo de trabajo con Claude Code.
+- Razonamiento simbólico con NetworkX, Z3 y PyDatalog.
+- Enrutamiento semántico y formalización mediante `SymbolicProblem`.
+- Memoria estructural de código con `codebase-memory-mcp`.
+- Grafo documental con Kùzu + LlamaIndex.
+- Políticas deterministas y revisión humana.
 
-The system is written primarily in Python and JavaScript/TypeScript, managed with `pnpm`, and configured through a collection of YAML/JSON files, CLI flags, and persistent memory stores.
+El foco arquitectónico actual es pasar de un LLM con herramientas a un sistema híbrido donde el LLM coordina, pero los motores externos verifican.
 
-### Directory Structure
+## Vista de alto nivel
+
+```text
+Usuario
+  │
+  ▼
+Hermes Agent / Claude Code
+  │
+  ▼
+Hooks / pre_llm_call
+  │
+  ▼
+HermesSymbolIntegration
+  │
+  ▼
+ProblemExtractor
+  │
+  ▼
+SymbolicProblem
+  │
+  ├── graph       → NetworkX
+  ├── constraints → Z3
+  ├── logic       → PyDatalog
+  └── combined    → NetworkX + Z3 + PyDatalog
+  │
+  ▼
+Evidencia estructurada
+  │
+  ▼
+Respuesta del LLM con contexto determinista
 ```
+
+## Directorios principales
+
+```text
 .
-├── .hermes/                     # Hermes runtime data
-│   ├── profiles/
-│   │   └── default/             # Current profile
-│   │       ├── skills/          # Installed skills (e.g., android-fin-gpt-trader)
-│   │       ├── plugins/
-│   │       ├── memories/
-│   │       └── cron/
-├── src/                         # Application source code
-│   ├── ingest.py                # PDF/Document ingestion to KùzuDB
-│   ├── query.py                 # Semantic query against the knowledge graph
-│   ├── orchestrator_main.py     # Entry point for orchestrator tasks
-│   ├── generate_specs.py        # OpenSpec spec generator
-│   └── ...                      # Additional modules
-├── scripts/
-│   ├── run_memory_pipeline.sh   # Executes memory pipeline
-│   └── downloader.sh            # Downloads reference documents
-├── tests/                       # Unit / integration tests
+├── agents/hermes/
+│   ├── config/
+│   ├── plugins/neurosymbolic-integration/
+│   └── skills/
+├── skilled/reasoning/
+│   ├── neuro_symbolic_engine.py
+│   ├── symbolic_problem_schema.py
+│   ├── semantic_router.py
+│   ├── z3_solver_integration.py
+│   ├── pydatalog_integration.py
+│   ├── networkx_wrapper.py
+│   └── hermes_integration.py
+├── src/
+│   ├── ingest.py
+│   ├── query.py
+│   └── reasoning/
+│       ├── contracts.py
+│       ├── policy_engine.py
+│       └── policies/
+├── docs/
+├── tests/
+├── .claude/
 ├── .openspec/
-│   └── specs/                   # Auto‑generated spec files (JavaScript)
-├── .github/                     # GitHub workflow definitions (if any)
-├── .gitignore
-├── CLAUDE.md                    # Hermes Agent configuration guide
-├── package.json                 # pnpm package definition
-├── pnpm-lock.yaml
-├── requirements.txt             # Python dependencies
-├── README.md                    # Basic project README
-└── ARCHITECTURE.md              # This documentation
+├── README.md
+├── CLAUDE.md
+├── SYSTEM_BLUEPRINT.md
+├── KNOWLEDGE_BROKER.md
+├── package.json
+└── requirements.txt
 ```
 
-### Core Components
-| Component | Purpose | Entry Point / API |
-|-----------|---------|-------------------|
-| **Hermes Agent** | Runtime that loads skills, manages memories, schedules cron jobs | `~/.hermes/profiles/default` |
-| **Orchestrator (`orchestrator-main`)** | Central planner & executor for multi‑step tasks | `orchestrator-main "task-name" --full` |
-| **General Planner (`general-planning`)** | Generates structured plans for features / bugs | `general-planning "implement API" --type feature --complexity medium` |
-| **Research Engine (`research-search-master`)** | Cross‑source search (arXiv, YouTube, StackOverflow) | `orchestrator-main "error X" --search [stackoverflow,youtube]` |
-| **Memory Broker** | Ingests documents → KùzuDB graph; provides semantic queries | `python src/ingest.py` ; `python src/query.py "question"` |
-| **OpenSpec Generator** | Scans Python files, emits `.js` spec files, validates them | `npm run generate-specs` |
-| **CLI Integration** | Wrapper around Claude Code for interactive coding | `claude-code ...` |
+## Núcleo neurosimbólico
 
-### Skill Ecosystem
-- **Installed Skills:**  
-  - `android-fin-gpt-trader` – Android‑oriented automated trading.  
-  - `portfolio-optimization` – Mean‑Variance, Black‑Litterman, HRP algorithms.  
-  - `ah-quant-analyst` – Quantitative analysis utilities.  
-  - `data-verifier` – Validates scientific/medical data against trusted sources.  
-  - `hermes-agent` – Low‑level agent configuration & management.  
-- **Skill Management Commands:**  
-  ```bash
-  # List skills
-  skill_view
-  # Load a skill for use
-  skill_view(name='android-fin-gpt-trader')
-  # Edit / patch a skill
-  skill_manage(action='patch', name='android-fin-gpt-trader', old_string='...', new_string='...')
-  ```
+### `skilled/reasoning/symbolic_problem_schema.py`
 
-All skills live under `~/.hermes/skills/` (or profile‑specific subfolders) and follow a **SKILL.md** convention (YAML front‑matter + usage guide). Skills can be created, updated, or deleted via `skill_manage`.
+Define el modelo intermedio `SymbolicProblem` y el extractor central.
 
-### Configuration & Environment
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_BASE_URL` | `https://openrouter.ai/api` – Base endpoint for OpenRouter API. |
-| `ANTHROPIC_AUTH_TOKEN` | API token for authentication. |
-| `ANTHROPIC_MODEL` | Default model (`openrouter/free`). |
-| `HERMES_PROFILE` | Name of the active Hermes profile (`default`). |
-| `HERMES_MEMORIES_DIR` | Directory where persistent memories are stored (`~/.hermes/memories`). |
+Responsabilidades:
 
-Configuration files:
-- **`.env`** (not version‑controlled) holds secrets.  
-- **`CLI` options** override environment defaults.  
-- **`package.json`** scripts define frequently used commands (`npm run test`, `npm run build`).  
+- Extraer entidades, relaciones, restricciones, hechos y reglas.
+- Fusionar estructuras simbólicas explícitas.
+- Inferir modo de razonamiento.
+- Evitar entidades inventadas.
+- Marcar ambigüedad mediante `human_review`.
 
-### Dependency Management
-- **Python:** `requirements.txt` (pinned versions). Installed via `pnpm install` or `python -m pip install -r requirements.txt`.  
-- **Node.js:** `package.json` + `pnpm-lock.yaml`. Scripts:  
-  ```json
-  {
-    "scripts": {
-      "test": "python3 -m pytest tests/",
-      "build": "echo \"No build step required\"",
-      "generate-specs": "./generate-specs.sh",
-      "generate-specs:ci": "npm run generate-specs && git add .openspec/specs && git commit -m \"feat: auto-generated specs from Python files\""
-    }
-  }
-  ```
-- **System Packages:** Occasionally required tools (`curl`, `jq`, `git`) are installed via `apt-get` or `pnpm add -g` as needed.
+Modos relevantes:
 
-### Build, Test & Deployment
+```text
+NONE
+GRAPHS
+CONSTRAINTS
+LOGIC
+COMBINED
+```
+
+### `skilled/reasoning/neuro_symbolic_engine.py`
+
+Coordinador principal.
+
+Responsabilidades:
+
+- Crear instancias frescas de cada motor para evitar estado compartido.
+- Elegir motor automáticamente según `SymbolicProblem`.
+- Ejecutar NetworkX, Z3, PyDatalog o modo combinado.
+- Validar formalización y resultados.
+- Preparar evidencia estructurada.
+
+### `skilled/reasoning/networkx_wrapper.py`
+
+Razonamiento sobre grafos.
+
+Capacidades actuales:
+
+- Grafo dirigido por ejecución.
+- Inserción de nodos y relaciones.
+- Detección de ciclos.
+- Verificación DAG.
+- Orden topológico.
+
+### `skilled/reasoning/z3_solver_integration.py`
+
+Resolución de restricciones.
+
+Capacidades actuales:
+
+- Variables enteras y booleanas.
+- Restricciones simples: `>`, `<`, `=`, suma, igualdad.
+- Resultado `satisfiable`, `unsatisfiable`, `unknown`, `error`.
+- Aislamiento de solver por instancia.
+
+### `skilled/reasoning/pydatalog_integration.py`
+
+Razonamiento basado en reglas.
+
+Capacidades actuales:
+
+- Hechos en PyDatalog.
+- Reglas con cabeza/cuerpo.
+- Consultas con bindings.
+- Corrección de orden de variables con `dict.fromkeys(...)`.
+- Limpieza de estado global por instancia.
+
+### `skilled/reasoning/semantic_router.py`
+
+Clasificador de tareas.
+
+Modos:
+
+```text
+llm_only
+rules
+constraints
+graph
+hybrid
+human_review
+```
+
+Motores recomendados:
+
+```text
+none
+networkx
+z3
+pydatalog
+combined
+```
+
+## Integración con Hermes
+
+### Plugin
+
+Ubicación:
+
+```text
+agents/hermes/plugins/neurosymbolic-integration/
+```
+
+Archivos:
+
+```text
+plugin.yaml
+__init__.py
+hermes_integration.py
+```
+
+`plugin.yaml` declara:
+
+```yaml
+provides_hooks:
+  - pre_llm_call
+```
+
+El hook:
+
+1. Recibe el mensaje del usuario.
+2. Llama a la integración simbólica.
+3. Ejecuta razonamiento si hay estructura formalizable.
+4. Inyecta contexto solo si el resultado es `success`.
+5. No inyecta evidencia determinista en caso de `human_review` o error.
+
+## Memoria estructural y conocimiento
+
+### CBM / codebase-memory-mcp
+
+Uso:
+
 ```bash
-# Activate virtualenv (if any) and install deps
-pnpm install
-
-# Run tests
-pnpm run test
-
-# Execute the memory pipeline
-./scripts/run_memory_pipeline.sh
-
-# Regenerate OpenSpec specs
-npm run generate-specs:ci
+pnpm run cbm:install
+pnpm run cbm:index
+QUERY="pattern" pnpm run cbm:search
+QUERY="name" pnpm run cbm:graph
 ```
 
-All commands are **self‑contained**; they respect the current working directory (`/home/fernando/ai-ecosystem`). The CI pipeline can be hooked to GitHub Actions via the `generate-specs:ci` script.
+Rol:
 
-### Orchestration & Workflow
-A typical end‑to‑end workflow might look like:
+- Índice estructural del código.
+- Búsqueda semántica o por patrones.
+- Grafo de dependencias/código.
 
-1. **Health Check**
-   ```bash
-   orchestrator-main "tarea" --detect --health
-   ```
-2. **Plan Generation** (example)
-   ```bash
-   general-planning "implement payment system" --type feature --complexity high --full
-   ```
-3. **Skill Execution** (example using trading skill)
-   ```bash
-   orchestrator-main "run-trade" --skill android-fin-gpt-trader --mode live
-   ```
-4. **Memory Update**
-   ```bash
-   ./scripts/run_memory_pipeline.sh
-   ```
-5. **OpenSpec Validation**
-   ```bash
-   npm run generate-specs:ci
-   ```
+### Kùzu + LlamaIndex
 
-The orchestrator can chain these steps automatically, using `context_from` to inject outputs of previous jobs into the next prompt.
+Dependencias actuales:
 
-### Memory & Learning System
-- **Storing a Fact**
-  ```bash
-  memory add --target=user --content "User prefers concise responses in Spanish"
-  ```
-- **Searching Memories**
-  ```bash
-  memory search --query "android-fin-gpt-trader" --namespace patterns
-  ```
-- **hooks** can be scheduled (cron) to run post‑task evaluations and store results.
+```text
+llama-index==0.14.23
+llama-index-graph-stores-kuzu==0.9.1
+kuzu==0.11.3
+```
 
-Memory entries are **additive**; stale entries can be removed or replaced in batches to stay within the char limit.
+Rol:
 
-### OpenSpec Integration
-- **Spec Generation Script** (`generate-specs.sh`)  
-  - Scans `src/**/*.py` (excluding `node_modules`, `venv`, `__pycache__`).  
-  - Emits JavaScript spec files into `.openspec/specs/`.  
-  - Runs `openspec validate` automatically.  
-- **CI Script** (`generate-specs:ci`) adds and commits generated specs.  
+- Grafo documental.
+- Ingesta y consulta semántica.
+- Base para una futura capa tipo Kappa/Quixote.
 
-Usage:
+## Policy Engine
+
+Ubicación:
+
+```text
+src/reasoning/
+```
+
+Archivos:
+
+```text
+contracts.py
+policy_engine.py
+policies/safety.yaml
+```
+
+Responsabilidades:
+
+- Modelar tareas, actores, evidencias, decisiones y revisión humana.
+- Cargar políticas YAML.
+- Aplicar precedencia determinista:
+
+```text
+DENY > REQUIRE_HUMAN > UNKNOWN > ALLOW
+```
+
+Estado: funcional como motor de políticas básico, pero todavía no está plenamente fusionado con PyDatalog/Z3 para políticas complejas.
+
+## Pruebas y verificación
+
+### Pruebas neurosimbólicas
+
 ```bash
-npm run generate-specs          # Local development
-npm run generate-specs:ci       # CI – stages & commits automatically
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_neurosymbolic_corrected.py
 ```
 
-### Maintenance & Extensibility
-| Action | Command | Notes |
-|--------|---------|-------|
-| **Add a new skill** | `skill_manage(action='create', name='new-skill', category='mlops', content='...')` | Must include YAML front‑matter and usage guide. |
-| **Patch an existing skill** | `skill_manage(action='patch', name='android-fin-gpt-trader', old_string='...', new_string='...')` | Update after discovering missing steps or OS‑specific issues. |
-| **Schedule a cron job** | `cronjob action='create' schedule='0 2 * * *' prompt='Run memory pipeline nightly' skills=[]` | Use `cronjob action='list'` to review existing jobs. |
-| **Run a background watchdog** | `terminal background=true notify_on_complete=true command='python watchdog.py'` | Ensure script emits output on success/failure. |
-| **Update documentation** | `write_file path='ARCHITECTURE.md' content='...'` | Keep this file synchronized with structural changes. |
+Cubren:
 
-### Troubleshooting
-- **Missing dependencies:** Run `pnpm install` again; check `requirements.txt` for Python packages.  
-- **Skill fails to load:** `skill_view(name='<skill>')` to inspect its `SKILL.md`; verify front‑matter is valid YAML.  
-- **Orchestrator cannot find a skill:** Ensure the skill directory resides under the active profile’s `skills/` folder; run `orchestrator-main "tarea" --detect --health`.  
-- **Cron job does not fire:** `cronjob action='list'` → verify `schedule` field; use `cronjob action='run' job_id=XYZ` to force execution.  
+- Inferencia PyDatalog real.
+- Z3 satisfiable.
+- Z3 unsatisfiable.
+- Ciclos NetworkX.
+- DAG y orden topológico.
+- Asignación con dominio cerrado.
+- Aislamiento entre tareas.
+- Rechazo de entidades inventadas.
+- Rechazo de restricciones no formalizables.
+- Combined mode con outputs reales.
 
-### Glossary & References
-- **Hermes Agent:** Open‑source orchestration framework (https://hermes-agent.nousresearch.com).  
-- **OpenSpec:** Contract‑first API validation tool (https://openspec.org).  
-- **KùzuDB:** Property graph database used for semantic memory (https://kuzudb.org).  
-- **Claude Code:** Anthropic CLI for interactive coding (https://claude.ai/code).  
-- **pnpm:** Fast, space‑efficient package manager (https://pnpm.io).  
+### Semantic router
 
---- End of Document ---
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
+```
+
+### Hermes CLI / plugin
+
+```bash
+npm run test:hermes-cli
+```
+
+### Nota sobre `npm test`
+
+El script raíz `npm test` puede estar definido como placeholder. Para validar el sistema real se deben usar los comandos explícitos de `pytest` y verificación de Hermes.
+
+## Estado frente al FGCS japonés
+
+| FGCS/ICOT | ai-ecosystem | Estado |
+|---|---|---|
+| PIMOS | Hermes Agent + hooks | Parcial |
+| HELIOS | Modo combinado con varios motores | Parcial |
+| MGTP | Z3/PyDatalog como motores parciales | Parcial |
+| Kappa | Kùzu/CBM/Knowledge Broker | Parcial |
+| Quixote | SymbolicProblem + entidades + reglas | Muy parcial |
+| HELIC-II | Casos + reglas + debate | Pendiente |
+| KL1/KL2 | Python + Hermes, no lenguaje lógico concurrente | No implementado |
+
+## Brechas arquitectónicas
+
+El sistema ya tiene motores. Lo pendiente es la capa de conocimiento persistente:
+
+1. Base lógica canónica.
+2. Persistencia de hechos y reglas.
+3. Identidad de entidades/objetos.
+4. Motor de contradicciones/truth maintenance.
+5. Trazas históricas de razonamiento.
+6. Planificación híbrida secuencial, no solo ejecución combinada.
+7. Razonamiento basado en casos.
+8. Debate adversarial entre agentes.
+9. Theorem prover general opcional.
+
+## Principio rector
+
+El LLM no debe ser la única fuente de verdad. Debe actuar como interfaz y coordinador, mientras que los motores simbólicos y la memoria estructural validan lo que pueda validarse determinísticamente.
