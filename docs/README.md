@@ -1,54 +1,101 @@
-# Calculadora Básica
+# Documentación de ai-ecosystem
 
-Esta feature proporciona un módulo de **calculadora** con cuatro operaciones aritméticas básicas:
+Este directorio contiene documentación complementaria. La documentación canónica del estado actual está en:
 
-| Función | Descripción |
+```text
+README.md
+ARCHITECTURE.md
+SYSTEM_BLUEPRINT.md
+CLAUDE.md
+KNOWLEDGE_BROKER.md
+```
+
+## Estado actual del proyecto
+
+`ai-ecosystem` es un workspace de Hermes Agent + Claude Code con núcleo neurosimbólico.
+
+Componentes principales:
+
+```text
+Hermes Agent
+Claude Code
+Plugin neurosimbólico pre_llm_call
+ProblemExtractor / SymbolicProblem
+Semantic Router
+NetworkX
+Z3
+PyDatalog
+CBM / codebase-memory-mcp
+Kùzu + LlamaIndex
+Policy Engine
+```
+
+## Índice de documentos
+
+| Documento | Propósito |
 |---|---|
-| `sumar(a, b)` | Devuelve la suma de `a` y `b`. |
-| `restar(a, b)` | Devuelve la resta de `b` de `a`. |
-| `multiplicar(a, b)` | Devuelve el producto de `a` y `b`. |
-| `dividir(a, b)` | Devuelve el cociente de `a` dividido por `b`. Si `b` es 0 lanza `ValueError`. |
+| `../README.md` | Presentación general actualizada |
+| `../ARCHITECTURE.md` | Arquitectura técnica vigente |
+| `../SYSTEM_BLUEPRINT.md` | Blueprint y diagnóstico del sistema |
+| `../CLAUDE.md` | Instrucciones operativas para Claude/Hermes |
+| `../KNOWLEDGE_BROKER.md` | Rol del broker dentro de la capa de conocimiento |
+| `CBM_INTEGRATION.md` | Uso e integración de codebase-memory-mcp |
+| `CBM_INTEGRATION_FULL.md` | Detalle operativo de CBM |
+| `integration_summary.md` | Resumen de verificación CBM/Hermes |
+| `WIKI_README.md` | Guía auxiliar de documentación/wiki |
 
-## Estructura de directorios
+## Criterio de vigencia
 
-```
-├── src/
-│   └── calculator.py   # Implementación de las funciones
-├── tests/
-│   └── test_calculator.py
-└── docs/
-    └── README.md
-```
+Al evaluar documentación, priorizar en este orden:
 
-## Uso
-
-```python
-from calculator import sumar, restar, multiplicar, dividir
-
-print(sumar(2, 3))          # 5
-print(restar(10, 3))         # 7
-print(multiplicar(4, 5))     # 20
-print(dividir(10, 2))        # deceptively 5.0
+```text
+1. Código actual.
+2. Historial reciente de commits.
+3. Tests reales.
+4. requirements.txt / package.json.
+5. Documentación.
 ```
 
-## Ejecutar tests
+La documentación anterior a los commits neurosimbólicos puede estar desfasada.
 
-Los tests utilizan **pytest**. Para llevado a cabo la prueba:
+## Validación recomendada
+
+### Núcleo neurosimbólico
 
 ```bash
-npm run test
-# o directamente
-pytest tests/test_calculator.py
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_neurosymbolic_corrected.py
 ```
 
-Asegêrse de que el entorno de `npm` tenga los scripts de test configurados (ver `package.json`).
+### Semantic router
 
-## Nota de calidad
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
+```
 
-- El módulo sigue las guias de estilo de 500 líneas por archivo.
-- Se aprovisionan docstring claros y se lanza una excepción controlada al intentar dividir por cero.
-- Los tests cubren casos positivos, negativos y de borde.
+### Hermes CLI
 
-## Licencia
+```bash
+npm run test:hermes-cli
+```
 
-MIT license.
+### CBM
+
+```bash
+pnpm run cbm:index
+QUERY="reasoning" pnpm run cbm:search
+QUERY="engine" pnpm run cbm:graph
+```
+
+## Brecha principal pendiente
+
+El proyecto ya tiene motores neurosimbólicos. Falta convertirlos en una memoria lógica persistente:
+
+```text
+Base lógica canónica
++ hechos persistentes
++ reglas persistentes
++ identidad de entidades
++ contradicciones
++ trazas históricas
++ planificador híbrido
+```
