@@ -1,176 +1,141 @@
-# Comparativa de Motores y Cuándo Usar Cada Uno
+# Comparación de motores neurosimbólicos
 
-Esta guía explica cuándo usar cada motor de razonamiento simbólico y cómo aprovechar al máximo para diferentes tipos de tareas.
+## Resumen
 
-## Comparativa General
+| Motor | Mejor para | No usar para |
+|---|---|---|
+| NetworkX | grafos, dependencias, ciclos, rutas, orden topológico | restricciones numéricas o reglas lógicas generales |
+| Z3 | restricciones, asignaciones, SAT/UNSAT, límites | memoria persistente o inferencia por precedentes |
+| PyDatalog | hechos, reglas, consultas lógicas | optimización numérica o grafos grandes |
+| combined | problemas con mezcla de grafos, reglas y restricciones | planificación cognitiva profunda todavía |
+| human_review | ambigüedad o falta de datos críticos | casos claramente formalizables |
 
-| Característica | NetworkX | PyDatalog | Z3 Solver |
-|--------------|----------|-----------|-----------|
-| Paradigma | Grafos y relaciones | Lógica de predicados | Lógica de primer orden (SMT) |
-| Complejidad | Media | Media-Alta | Alta |
-| Tiempo de ejecución | Rápido | Rápido | Variable (PUEDE ser lento) |
-| Memoria | Eficiente | Eficiente | Puede ser intensivo |
-| Escalabilidad | Alta | Media-Alta | Media-Baja |
-| Facilidad de uso | Media | Alta | Media-Baja |
-| Interpretación de resultados | Intuitiva (grafos) | Lógica deductiva | Técnica (modelos) |
+## NetworkX
 
-## Cuándo Usar NetworkX
+Uso:
 
-### Casos de Uso Típicos
-
-- **Planificación de tareas/construcción de pipelines**
-  - Detectar ciclos en dependencias antes de ejecutar
-  - Determinar orden topológico de ejecución
-
-- **Análisis de arquitectura de software**
-  - Validar que no hay ciclos en dependencias de paquetes
-  - Analizar conectividad entre componentes
-
-- **Diagnóstico de sistemas**
-  - Identificar puntos de fallo críticos
-  - Analizar redes de dependencias
-
-### Ejemplo
-
-```python
-# Analizar dependencias de microservicios
-context = {
-    "dependencies": {
-        "service_a": ["service_b"],
-        "service_b": ["service_c"],
-        "service_c": []
-    }
-}
-
-result = hermes_explicit_symbolic_reasoning(
-    "Validar topología de microservicios",
-    context,
-    engine_preference="networkx"
-)
+```text
+A depende de B
+B depende de C
+¿hay ciclos?
 ```
 
-## Cuándo Usar PyDatalog
+Capacidades:
 
-### Casos de Uso Típicos
+- Construcción de grafos dirigidos.
+- Detección de ciclos.
+- DAG.
+- Orden topológico.
 
-- **Validación de reglas de negocio**
-  - Determinar elegibilidad de clientes para préstamos
-  - Validar políticas de seguros
+Salida esperada:
 
-- **Sistemas expertos**
-  - Motor de recomendaciones basado en hechos y reglas
-  - Diagnóstico médico con protocolos clínicos
-
-- **Análisis de cumplimiento normativo**
-  - Verificar que transacciones cumplen con regulaciones
-  - Validar acceso basado en roles
-
-### Ejemplo
-
-```python
-# Validar elegibilidad para préstamo
-context = {
-    "facts": [
-        ("edad", 25),
-        ("ingresos_anuales", 50000),
-        ("puntaje_credito", 720)
-    ],
-    "rules": [
-        {"name": "edad_minima", "head": "elegible_edad", "body": "edad >= 18"},
-        {"name": "ingreso_minimo", "head": "elegible_ingreso", "body": "ingresos_anuales >= 30000"},
-        {"name": "credito_minimo", "head": "elegible_credito", "body": "puntaje_credito >= 650"},
-        {"name": "aprobacion", "head": "aprobado", "body": "elegible_edad & elegible_ingreso & elegible_credito"}
-    ]
-}
-
-result = hermes_explicit_symbolic_reasoning(
-    "Verificar elegibilidad para préstamo",
-    context,
-    engine_preference="pydatalog"
-)
+```text
+is_acyclic
+cycles_found
+topological_order
 ```
 
-## Cuándo Usar Z3 Solver
+## Z3
 
-### Casos de Uso Típicos
+Uso:
 
-- **Planificación y programación**
-  - Asignación de recursos con restricciones
-  - Planificación de horarios (examenes, trabajos)
-
-- **Verificación de software**
-  - Encontrar violaciones de invariantes
-  - Comprobar cobertura de casos de prueba
-
-- **Optimización de sistemas**
-  - Configuración óptima de parámetros
-  - Resolución de problemas combinados
-
-### Consideraciones de Rendimiento
-
-- Z3 puede ser **lento** con problemas muy complejos
-- Es ideal para problemas con **muchas variables interdependientes**
-- Para problemas simples, PyDatalog suele ser suficiente
-
-### Ejemplo
-
-```python
-# Planificar horarios de exámenes
-context = {
-    "variables": {
-        "hora_examen_matematicas": "int",
-        "hora_examen_fisica": "int",
-        "hora_examen_quimica": "int"
-    },
-    "constraints": [
-        "hora_examen_matematicas >= 9",
-        "hora_examen_matematicas <= 17",
-        "hora_examen_fisica >= 9",
-        "hora_examen_fisica <= 17",
-        "hora_examen_quimica >= 9",
-        "hora_examen_quimica <= 17",
-        "hora_examen_matematicas != hora_examen_fisica",
-        "hora_examen_matematicas != hora_examen_quimica",
-        "hora_examen_fisica != hora_examen_quimica"
-    ],
-    "objectives": {
-        "minimize": "hora_examen_quimica"  # Preferir química lo más temprano posible
-    }
-}
-
-result = hermes_explicit_symbolic_reasoning(
-    "Planificar horarios de exámenes sin solapamiento",
-    context,
-    engine_preference="z3"
-)
+```text
+Reparte A,B,C entre Ana,Luis.
+Máximo una tarea por persona.
+A y B no pueden estar juntas.
 ```
 
-## Motor 'combined'
+Capacidades:
 
-Cuando `engine_preference="combined"`:
+- Variables enteras/booleanas.
+- Restricciones.
+- SAT/UNSAT.
+- Validación de dominio cerrado.
 
-1. Se ejecutan todos los motores disponibles
-2. Cada motor analiza su aspecto correspondiente
-3. Los resultados se consolidan en una conclusión final
-4. La confianza se calcula como promedio de confianzas individuales
+Salida esperada:
 
-### Ventajas
+```text
+solution_status
+solution_values
+formalized_constraints
+assignment
+```
 
-- **Cobertura máxima**: Captura problemas complejos que cada motor por separado podría no resolver
-- **Robustez**: Si un motor falla, otros pueden proporcionar resultados
+## PyDatalog
 
-### Desventajas
+Uso:
 
-- **Mayor costo computacional**: Ejecuta tres motores en lugar de uno
-- **Complejidad de integración**: Puede ser difícil consolidar resultados divergentes
+```text
+parent(Alice,Bob)
+parent(Bob,Charlie)
+ancestor(X,Y) <= parent(X,Y)
+```
 
-## Recomendaciones para Elección Manual
+Capacidades:
 
-| Escenario | Motor Sugerido |
-|-----------|----------------|
-| Simple estructura de dependencias | NetworkX |
-| Reglas de negocio claras | PyDatalog |
-| Restricciones complejas con optimización | Z3 |
-| Tarea mixta o desconocida | 'combined' |
-| Priorizar velocidad sobre exhaustividad | NetworkX o PyDatalog |
-| Priorizar exhaustividad sobre velocidad | Z3 o 'combined' |
+- Hechos.
+- Reglas.
+- Consultas.
+- Bindings.
+- Hechos derivados.
+
+Salida esperada:
+
+```text
+facts_processed
+rules_applied
+bindings
+derived_facts
+```
+
+## Combined
+
+Uso:
+
+Cuando el problema trae varias estructuras a la vez:
+
+```text
+relaciones + restricciones + reglas
+```
+
+Estado actual:
+
+- Ejecuta varios motores.
+- Combina resultados básicos.
+- Calcula confianza simple según motores ejecutados.
+
+Limitación:
+
+No es todavía un planificador híbrido profundo. El siguiente paso sería ordenar motores por dependencia lógica.
+
+## Human review
+
+Uso:
+
+```text
+A depende de B
+```
+
+sin contexto técnico puede ser ambiguo.
+
+La ruta `human_review` evita inyectar evidencia determinista cuando la formalización puede ser incorrecta.
+
+## Reglas de selección
+
+```text
+relaciones / flechas / ciclos      → NetworkX
+máximo / mínimo / asignación       → Z3
+hechos + reglas                    → PyDatalog
+mezcla de estructuras              → combined
+ambigüedad / datos faltantes       → human_review
+solo lenguaje natural              → llm_only
+```
+
+## Relación con FGCS
+
+| FGCS | ai-ecosystem |
+|---|---|
+| HELIOS | combined básico |
+| MGTP | Z3/PyDatalog parciales |
+| PIMOS | Hermes hook/orquestación |
+| Quixote/Kappa | futura base lógica persistente |
