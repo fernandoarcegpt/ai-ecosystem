@@ -1,136 +1,129 @@
 ---
 name: semantic-router
-description: "Automatic classification and routing of user requests to appropriate reasoning modes"
-version: 1.0.0
+description: Clasificación automática de solicitudes hacia modos de razonamiento LLM, reglas, restricciones, grafos, híbrido o revisión humana.
+version: 1.1.0
 author: Hermes Agent
-license: MIT
-platforms: [linux, macos, windows]
-metadata:
-  hermes:
-    tags: [neurosymbolic, reasoning, routing, automation, symbolic-ai]
+tags: [neurosymbolic, reasoning, routing, automation, symbolic-ai, human-review]
 ---
 
+# Semantic Router
 
-## Uncertainty Handling
+El Semantic Router clasifica solicitudes de usuario para decidir si deben ir al LLM normal o a un motor simbólico.
 
-When uncertainty indicators ('sin información', 'no hay datos', or 'falta información') are detected in a request, the semantic router prioritizes `human_review` mode with `NONE` engine and 80% confidence to ensure accurate execution. This takes precedence over hybrid detection when critical data is missing.
+## Modos actuales
 
-### Confidence Semantics
-**Critical clarification**: `confidence` represents the router's confidence in the *classification decision*, NOT the confidence that the task can be solved automatically. 
+| Modo | Motor recomendado | Uso |
+|---|---|---|
+| `llm_only` | `none` | resumen, traducción, redacción, conversación |
+| `rules` | `pydatalog` o política externa | reglas, permisos, inferencias |
+| `constraints` | `z3` | restricciones, asignaciones, límites |
+| `graph` | `networkx` | dependencias, ciclos, rutas, orden topológico |
+| `hybrid` | `combined` | mezcla de grafos, reglas y restricciones |
+| `human_review` | `none` | ambigüedad o datos críticos faltantes |
 
-- `human_review` with `confidence=0.8` means: "The router is 80% certain this request requires human review"
-- This is semantically correct — high classification confidence for human review is desired
+## Relación con `ProblemExtractor`
 
-### Practical Example
+El router clasifica la intención estructural. La formalización real ocurre en:
 
-The classification behavior addresses user preference for practical verification:
+```text
+skilled/reasoning/symbolic_problem_schema.py
+```
+
+El resultado formalizado se representa como:
+
+```text
+SymbolicProblem
+```
+
+## Principio clave
+
+`confidence` significa confianza en la clasificación, no confianza en que el problema pueda resolverse automáticamente.
+
+Ejemplo:
+
+```text
+mode = human_review
+confidence = 0.8
+```
+
+significa:
+
+```text
+El sistema está bastante seguro de que esto requiere revisión humana.
+```
+
+No significa que pueda resolverlo con 80% de certeza.
+
+## Ambigüedad
+
+Debe usarse `human_review` cuando:
+
+- faltan datos críticos;
+- hay ambigüedad semántica;
+- una relación puede significar varias cosas;
+- la formalización no debería inyectarse como evidencia determinista.
+
+Ejemplo:
+
+```text
+"A depende de B"
+```
+
+puede ser dependencia técnica, laboral, económica, emocional o documental. Si no hay contexto de grafo/dependencias, debe tratarse con cuidado.
+
+## Falsos positivos a evitar
+
+No activar `human_review` solo por frases negativas como:
+
+```text
+No hay restricciones de presupuesto.
+No faltan datos.
+No hay dependencias.
+```
+
+Esas frases pueden ser información válida, no incertidumbre.
+
+## Uso programático
 
 ```python
-test_input = "Asigna diez usuarios a cinco equipos bajo presupuesto limitado, pero sin información de costos."
-result = classify_task_structure(test_input)
+from reasoning.semantic_router import classify_task_structure
 
-# Before fix: Would incorrectly classify as hybrid with reduced confidence
-# After fix: Correctly classifies as human_review due to uncertainty detection
+result = classify_task_structure(
+    "Organiza estas tareas respetando dependencias y detecta ciclos."
+)
 
-assert result["mode"] == "human_review"
-assert result["confidence"] == 0.8
-assert result["recommended_engine"] == "none"
+print(result["mode"])
+print(result["recommended_engine"])
 ```
 
-### False Positive Prevention
-
-The router now correctly distinguishes between:
-- **Missing critical info** → `human_review`: "No hay datos de costos", "Información insuficiente", "Costos desconocidos"
-- **Negative assertions** → NO `human_review`: "No hay restricciones de presupuesto", "No hay datos faltantes"
-- **Contextual negation**: "Los costos son desconocidos pero no intervienen" → NO `human_review` if not needed for resolution
-
-See `references/classification_logic.md` for detailed scoring logic and engine mapping.
-
-## Purpose
-Automatically detect the optimal reasoning mode for incoming user requests and route them to the appropriate symbolic engine without requiring manual tags (#RAZONAMIENTO, #DEPENDENCY, etc.).
-
-## Key Concepts
-
-### Automatic Mode Selection
-Instead of relying on user-provided tags, the semantic router analyzes the **structural characteristics** of the request to determine the most appropriate reasoning approach:
-
-1. **Linguistic Tasks** (e.g., summary, translation, casual conversation)
-   → Mode: `llm_only`
-
-2. **Policy & Permission Checks**
-   → Mode: `rules` → Engine: `z3`
-
-3. **Constraint Satisfaction Problems** (e.g., scheduling, budgeting, assignment)
-   → Mode: `constraints` → Engine: `z3`
-
-4. **Dependency & Graph Analysis** (e.g., task ordering, cycle detection)
-   → Mode: `graph` → Engine: `networkx`
-
-5. **Multi-Domain Requests** (e.g., "Planifica el cambio y comprueba tanto políticas como dependencias.")
-   → Mode: `hybrid` → Engines: `networkx` + `z3` + `pydatalog`
-
-6. **Uncertain or Insufficient Data** (e.g., missing constraints, conflicting info)
-   → Mode: `human_review`
-
-## Implementation Details
-
-Pattern recognition uses both keyword analysis and structural indicators (e.g., "if-then", "sequence", "constraint satisfaction"). Each pattern type contributes to a confidence score which determines the mode.
-
-Classification is performed in constant-time (~ O(n) where n is length of input) to ensure minimal performance impact.
-
-## Integration Guide
-
-To integrate the Semantic Router into any agent workflow:
-
-1. **Import the classifier function**:
-   ```python
-   from skilled.reasoning.semantic_router import classify_task_structure
-   ```
-
-2. **Classify each incoming request**:
-   ```python
-   classification = classify_task_structure(user_request)
-   ```
-
-3. **Route based on returned mode**:
-   ```python
-   if classification["mode"] != "llm_only":
-       execute_symbolic_reasoning(classification)
-   else:
-       normal_llm_processing()
-   ```
-
-## Testing
-
-Unit tests for the Semantic Router are located in:
- - `tests/test_semantic_router/test_core_modes.py`
-
-Run with:
-```bash
-PYTHONPATH=/path/to/skilled:$PYTHONPATH pytest tests/
-```
-
-## Verification Test Example
-
-A minimal test validates core classification behavior:
+## Validación
 
 ```bash
-python3 - <<'PYTEST'
-from skilled.reasoning.semantic_router import classify_task_structure
-
-# Test case: rule-based request
-result = classify_task_structure("Regla: Un editor solo puede leer archivos. Ana es editora. ¿Puede modificar config.yaml?")
-assert result["mode"] == "rules", f"Expected 'rules', got {result['mode']}"
-assert result["recommended_engine"] == "z3", f"Expected 'z3', got {result['recommended_engine']}"
-print("✅ Rule classification test passed")
-PYTEST
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
 ```
 
-This test can be executed directly without a test framework and confirms that rule-based queries are routed to the symbolic rules engine (`z3`) correctly.
+## Relación con motores
 
-## References
+El router no debe ejecutar motores directamente. Su función es recomendar.
 
-- [Neuro-Symbolic Reasoning in Hermes](references/neurosymbolic_reasoning.md)
-- [Symbolic Engine Integration](references/symbolic_engine_integration.md)
+La ejecución ocurre en:
 
-See `references/` directory for detailed technical documentation on each reasoning engine.
+```text
+skilled/reasoning/neuro_symbolic_engine.py
+```
+
+## Estado actual
+
+Implementado:
+
+- Clasificación por patrones y estructura.
+- Modos `llm_only`, `rules`, `constraints`, `graph`, `hybrid`, `human_review`.
+- Priorización de incertidumbre explícita.
+- Diferenciación entre incertidumbre y negación.
+
+Pendiente:
+
+- Aprendizaje de patrones.
+- Registro persistente de decisiones de routing.
+- Métricas históricas de aciertos/falsos positivos.
+- Integración más profunda con una base lógica persistente.
