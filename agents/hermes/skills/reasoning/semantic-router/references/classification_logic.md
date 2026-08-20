@@ -1,55 +1,143 @@
-# Classification Logic Reference
+# Classification Logic
 
-## Mode Priority Order
+## Objetivo
 
-The semantic router evaluates modes in this order:
+Clasificar solicitudes de usuario según la estructura del problema, no solo por palabras clave.
 
-1. **UNCAUGHT EXCEPTION** - If scores dict is empty → `llm_only`
-2. **UNCERTAINTY DETECTION** - If uncertainty indicators present AND human_review pattern matches → `human_review` (short-circuit)
-3. **HYBRID DETECTION** - If top mode is "hybrid" OR second-highest score >= 70% of top score AND >= 2 modes have scores >= 50% of top score → `hybrid`
-4. **SINGLE MODE** - Return the highest-scoring mode
+## Modos
 
-## Uncertainty Indicators
+```text
+llm_only
+rules
+constraints
+graph
+hybrid
+human_review
+```
 
-These phrases trigger `human_review` when matched with `human_review` pattern:
+## Motores recomendados
 
-| Indicator | Purpose |
-|-----------|---------|
-| "sin información" | Missing data |
-| "no hay datos" | No data available |
-| "falta información" | Missing information |
-| "desconocido" | Unknown state |
+```text
+none
+networkx
+z3
+pydatalog
+combined
+```
 
-## Scoring System
+## Criterios
 
-| Pattern Type | Points |
-|--------------|--------|
-| Keyword match | 2 per occurrence |
-| Structural regex match | 5 per pattern |
+### `llm_only`
 
-## Engine Mapping
+Usar cuando la tarea es lingüística:
 
-| Mode | Engine |
-|------|--------|
-| rules | z3 |
-| constraints | z3 |
-| graph | networkx |
-| hybrid | combined |
-| human_review | none |
-| llm_only | none |
+```text
+resumir
+traducir
+redactar
+explicar sin cálculo formal
+```
 
-## Test Cases
+### `graph`
 
-```python
-# Uncertainty triggers human_review despite hybrid scores
-test = "Asigna diez usuarios a cinco equipos bajo presupuesto limitado, pero sin información de costos."
-# Expected: human_review (constraints=9, human_review=7, but uncertainty detected)
+Usar cuando hay relaciones formalizables:
 
-# Hybrid when combining domains
-test = "Planifica el cambio y comprueba tanto políticas como dependencias."
-# Expected: hybrid (policies + dependencies)
+```text
+A -> B
+A depende de B en un grafo
+orden topológico
+ciclo
+ruta
+```
 
-# Pure constraints
-test = "Asigna diez usuarios a cinco equipos bajo presupuesto limitado."
-# Expected: constraints
+Motor: `networkx`.
+
+### `constraints`
+
+Usar cuando hay límites simultáneos:
+
+```text
+máximo
+mínimo
+asignar
+repartir
+presupuesto
+capacidad
+```
+
+Motor: `z3`.
+
+### `rules`
+
+Usar cuando hay hechos y reglas:
+
+```text
+si X entonces Y
+hecho(...)
+regla(...)
+parent(A,B)
+```
+
+Motor: `pydatalog` o policy engine según contexto.
+
+### `hybrid`
+
+Usar cuando coexisten varias estructuras:
+
+```text
+relaciones + restricciones
+reglas + dependencias
+hechos + restricciones + grafo
+```
+
+Motor: `combined`.
+
+### `human_review`
+
+Usar cuando:
+
+- falta información crítica;
+- hay ambigüedad semántica;
+- una relación puede interpretarse de varias formas;
+- la formalización puede inducir una conclusión falsa.
+
+## Confianza
+
+`confidence` significa confianza en la clasificación, no confianza en resolver automáticamente.
+
+Ejemplo:
+
+```text
+human_review, confidence=0.8
+```
+
+quiere decir:
+
+```text
+el router cree con alta confianza que se requiere revisión humana
+```
+
+## Negación vs incertidumbre
+
+No confundir:
+
+```text
+No hay costos conocidos.
+```
+
+con:
+
+```text
+No hay restricciones de costos.
+```
+
+La primera puede requerir revisión; la segunda puede ser una condición válida.
+
+## Regla operativa
+
+La clasificación recomienda. La formalización y ejecución final corresponden a:
+
+```text
+ProblemExtractor
+NeurosymbolicCoordinator
 ```
