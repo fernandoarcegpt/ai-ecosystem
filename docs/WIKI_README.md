@@ -1,223 +1,138 @@
-# OKF Wiki Memory System - Documentación de Referencia
+# Wiki / Documentation Guide
 
-> Implementación del Open Knowledge Format (OKF) para gestión de memoria persistente en sistemas de IA autónoma.
+## Propósito
 
-## 🎯 Resumen rápido
+Esta guía organiza la documentación del proyecto `ai-ecosystem` y define cómo mantenerla alineada con el estado real del código.
 
-El OKF Wiki es un sistema de **memoria basada en archivos planos** que sirve como capa de almacenamiento físico para agentes de IA autónoma (Claude Code, Ruflo, etc.). Almacena notas como archivos `.md` en `wiki_memoria/`, provee un pipeline de procesamiento robusto, y sincroniza con Obsidian Vault mediante el Knowledge Broker.
+## Estado actual del proyecto
 
-## 📋 Índice
+`ai-ecosystem` es un workspace de Hermes Agent + Claude Code con núcleo neurosimbólico.
 
-1. [¿Qué es OKF?](#que-es-okf)
-2. [Estructura del sistema de archivos](#estructura-del-sistema-de-archivos)
-3. [Herramientas principales](#herramientas-principales)
-4. [Pipeline de procesamiento](#pipeline-de-procesamiento)
-5. [Seguridad](#seguridad)
-6. [Integración con Knowledge Broker](#integración-con-knowledge-broker)
-7. [Ejemplo de uso](#ejemplo-de-uso)
+Componentes vigentes:
 
----
-
-## 🤔 ¿Qué es OKF?
-
-**Open Knowledge Format (OKF)** es una alternativa ligera y portátil a los almacenamiento tradicionales con Graph DBs costosos. Específicamente diseñado para:
-
-- **Agentes de IA autónoma** que necesitan memoria persistente fuera de la sesión actual
-- **Flujos de trabajo en tiempo real** con capacidad de recuperación simple
-- **Multi-agente systems** donde cada agente almacena conocimiento en notas Markdown planas
-- **Transferencia sin fricciones** entre aplicaciones y servicios mediante intercambio de archivos
-
-> Esta implementación sigue la arquitectura de tres capas descrita en CLAUDE.md:
-> **Capa 1** (Almacenamiento) → **Capa 2** (Ejecución) → **Capa 3** (Razonamiento)
-
-## 📁 Estructura del sistema de archivos
-
-```
-wiki_memoria/                    # Directorio raíz de OKF
-├── .index.json                  # Índice para fast lookup
-├── .changelog.log               # Historial de modificaciones
-├── normativa/                    # Reglas de formato y taxonomía
-│   └── formato_reportes.md
-├── proyectos/                    # Estado de proyectos
-└── staging/                      # Notas pendientes de procesamiento
+```text
+Hermes Agent
+Claude Code
+pre_llm_call hook
+ProblemExtractor
+SymbolicProblem
+Semantic Router
+NetworkX
+Z3
+PyDatalog
+CBM / codebase-memory-mcp
+Kùzu + LlamaIndex
+Policy Engine
 ```
 
-### Componentes clave
+## Documentos canónicos
 
-| Archivo | Propósito |
-|---------|-----------|
-| `.index.json` | Registro automático de todos los archivos con timestamps |
-| `.changelog.log` | Historial cronológico de operaciones WRITE/TRANSFER |
-| `normativa/` | Directrices de estilo y formatos obligatorios |
-| `proyectos/` | Notas de estado por proyecto |
-| `staging/` | Área de trabajo temporal para nuevas notas |
+| Archivo | Rol |
+|---|---|
+| `README.md` | Vista general del proyecto |
+| `ARCHITECTURE.md` | Arquitectura técnica vigente |
+| `SYSTEM_BLUEPRINT.md` | Diagnóstico y mapa del sistema |
+| `CLAUDE.md` | Reglas operativas para Claude/Hermes |
+| `KNOWLEDGE_BROKER.md` | Capa de broker/conocimiento |
+| `docs/README.md` | Índice documental |
 
-## 🔧 Herramientas principales
+## Documentos auxiliares
 
-### `list_wiki_files() -> List[str]`
+| Archivo | Rol |
+|---|---|
+| `docs/CBM_INTEGRATION.md` | Integración CBM resumida |
+| `docs/CBM_INTEGRATION_FULL.md` | Guía CBM extendida |
+| `docs/integration_summary.md` | Resumen de integración Hermes/CBM/neurosimbólico |
 
-Enumera los archivos pendientes en `staging/`:
+## Regla de actualización
 
-```python
-from process_wiki import list_wiki_files
+Actualizar documentación cuando cambie cualquiera de estas piezas:
 
-archivos = list_wiki_files()
-print(archivos)  # ['nota_1.md', 'nota_2.md']
+```text
+skilled/reasoning/
+agents/hermes/plugins/
+agents/hermes/config/
+src/reasoning/
+requirements.txt
+package.json
+.mcp.json
 ```
 
-### `read_wiki_file(path: str) -> str`
+## Cómo evitar documentación desfasada
 
-Lee contenido de una nota específica:
+Antes de afirmar que algo está implementado, verificar:
 
-```python
-from process_wiki import read_wiki_file
-
-content = read_wiki_file("proyectos/um_cobriza.md")
-print(content)  # Contenido Markdown
+```text
+1. archivo real
+2. test real
+3. commit reciente
+4. configuración activa
+5. documentación existente
 ```
 
-### `write_wiki_file(path: str, content: str) -> None`
+La documentación es la última fuente, no la primera.
 
-Crea/actualiza una nota en el árbol de wiki:
+## Estados permitidos
 
-```python
-from process_wiki import write_wiki_file
+Usar siempre uno de estos estados:
 
-write_wiki_file("proyectos/nuevo.md", "# Nuevo Proyecto\n\nDescripción...")
+```text
+Implementado
+Implementado básico
+Parcial
+Configurado
+Pendiente
+No implementado
 ```
 
-### `write_to_wiki_vault(filename: str, content: str) -> bool`
+No usar frases como “completo” si no hay prueba o test que lo respalde.
 
-Transfiere una nota al Obsidian Vault:
-
-```python
-from process_wiki import write_to_wiki_vault
-
-success = write_to_wiki_vault("nota.md", "# Nota\n\n...")
-if success:
-    print("Transferido al vault")
-```
-
-## 🔄 Pipeline de procesamiento
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    OKF PIPELINE                                │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                │
-│  staging/*.md                                                 │
-│      │                                                         │
-│      ▼                                                         │
-│  [process_wiki.py]                                            │
-│      │                                                         │
-│      ├─→ validate() → RECHAZADO → Descartar                    │
-│      │                                                         │
-│      └─→ validate() → APROBADO →                               │
-│              │                                                 │
-│              ▼                                                 │
-│        write_wiki_file() → wiki_memoria/                        │
-│              │                                                 │
-│              ▼                                                 │
-│        write_to_wiki_vault() → Knowledge Broker                 │
-│              │                                                 │
-│              ▼                                                 │
-│        Obsidian Vault                                         │
-│                │                                               │
-│                ▼                                               │
-│        [SUCCESS] → eliminar staging/*.md                      │
-│                                                                │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## 🛡️ Seguridad
-
-### Prevención de Path Traversal
-
-Todas las funciones de escritura/validación usan `sanitizePath()` para prevenir accesos fuera del árbol de wiki:
-
-```python
-# Intentar acceder fuera del árbol
-write_wiki_file("../../../etc/passwd", "malicious")
-# → Exception: "Ruta no permitida: intruso con ../"
-```
-
-### Buenas prácticas
-
-- Nunca almacenar credenciales sensibles en notas
-- Validar contenido antes de escribir
-- Usar `staging/` para notas en progreso
-- Elimina notas del staging tras transferencia exitosa
-
-## 🔄 Integración con Knowledge Broker
-
-El Knowledge Broker (`knowledge_broker.py`) es el puente hacia Obsidian:
-
-| Función | USOS |
-|---------|------|
-| `validate()` | Verifica contenido no vacío |
-| `write_to_vault()` | Escribe vía REST API a Obsidian |
-| `process_staging()` | Pipeline completo |
-
-Variables de configuración en `.obsidian-broker/.env`:
-- `OBSIDIAN_PORT` (default: 27124)
-- `OBSIDIAN_API_KEY` (token Bearer)
-
-## 📝 Ejemplo de uso
-
-### Caso 1: Crear una nueva nota
+## Pruebas que deben aparecer en documentación técnica
 
 ```bash
-# 1. Crear nota en staging
-echo "# Mi Proyecto\n\nDescripción del proyecto..." > wiki_memoria/staging/mi_proyecto.md
-
-# 2. Ejecutar pipeline
-python3 process_wiki.py
-
-# 3. Verificar en vault
-cat vault/mi_proyecto.md
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_neurosymbolic_corrected.py
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
+npm run test:hermes-cli
 ```
 
-### Caso 2: Consultar notas existentes
+Para CBM:
 
-```python
-from process_wiki import read_wiki_file
-
-# Leer nota específica
-nota = read_wiki_file("proyectos/existing.md")
-print(nota)
+```bash
+pnpm run cbm:index
+QUERY="reasoning" pnpm run cbm:search
+QUERY="engine" pnpm run cbm:graph
 ```
 
-### Caso 3: Lista de notas pendientes
+## Mapa conceptual
 
-```python
-from process_wiki import list_wiki_files
-
-pendientes = list_wiki_files()
-for f in pendientes:
-    print(f"Pendiente: {f}")
+```text
+LLM / Hermes
+  ↓
+Interfaz y coordinación
+  ↓
+ProblemExtractor / Semantic Router
+  ↓
+Formalización simbólica
+  ↓
+Motores deterministas
+  ↓
+Evidencia estructurada
+  ↓
+Respuesta trazable
 ```
 
-## 📊 Metadatos automáticos
+## Próximo capítulo de documentación recomendado
 
-### .index.json (actualizado automáticamente)
+Crear o ampliar documentación para:
 
-```json
-{
-  "proyectos/um_cobriza.md": {
-    "action": "write",
-    "ts": "2026-07-08T19:00:00"
-  }
-}
+```text
+Canonical Logical Knowledge Base
+FactStore
+RuleStore
+EntityIdentityResolver
+ContradictionEngine
+ReasoningTraceStore
+HybridPlanner
 ```
 
-### .changelog.log (actualizado automáticamente)
-
-```
-[2026-07-08T19:00:00] WRITE proyectos/um_cobriza.md
-[2026-07-08T19:01:00] TRANSFER_OK proyectos/um_cobriza.md
-```
-
----
-
-**Versión:** 1.0  
-**Última actualización:** 2026-07-08
+Estas piezas todavía son el salto pendiente desde “razonamiento por consulta” hacia “conocimiento lógico persistente”.
