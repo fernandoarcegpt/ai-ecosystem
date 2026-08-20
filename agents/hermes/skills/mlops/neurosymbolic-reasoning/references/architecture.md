@@ -1,35 +1,75 @@
-# Arquitectura Neurosimbólica
+# Arquitectura neurosimbólica
 
-## Componentes principales
-1. NeurosymbolicCoordinator - Coordina los motores
-2. HermesSymbolIntegration - Expone interfaz Hermes
-3. GraphAnalyzer - Wrapper NetworkX (aislamiento de estado garantizado)
-4. ConstraintSolver - Wrapper Z3 (nuevo solver por ejecución)
-5. SymbolicEngine - Wrapper PyDatalog (nuevo motor por ejecución)
+## Flujo actual
 
-## Diagrama de flujo
-task_description -> analyze_context_for_reasoning -> needs_symbolic_reasoning?
-                                                           |
-                                                          YES
-                                                           |
-                              engine = recommended_engine
-                                                           |
-                          +----------------------------------+--------------------------+
-                          |                          |                         |
-                    networkx_analysis    z3_analysis    pydatalog_analysis
-                          |                          |
-                          +--------------------------+--------------------------+
-                                              |
-                                     evidence_for_hermes
-                                              |
-                                  +-----------+-----------+
-                                  |                       |
-                       integrate_result          log_stats
+```text
+Usuario
+  ↓
+Hermes Agent / Claude Code
+  ↓
+pre_llm_call hook
+  ↓
+HermesSymbolIntegration
+  ↓
+ProblemExtractor
+  ↓
+SymbolicProblem
+  ↓
+NetworkX / Z3 / PyDatalog / combined
+  ↓
+Evidencia estructurada
+  ↓
+Respuesta del LLM
+```
 
-## Aislamiento de estado (Requirement #2 reparado)
-- Cada ejecución crea nuevos GraphAnalyzer(), ConstraintSolver(), SymbolicEngine()
-- El metodo _run_networkx_reasoning() crea nx.DiGraph() local
-- No hay comparticion de estado entre llamadas
+## Componentes
 
-## Verificacion
-Ejecutar test_neurosymbolic.py incluido en el proyecto raiz.
+| Componente | Archivo | Función |
+|---|---|---|
+| Integración Hermes | `skilled/reasoning/hermes_integration.py` | Adaptador entre Hermes y motor simbólico |
+| Coordinador | `skilled/reasoning/neuro_symbolic_engine.py` | Selección y ejecución de motores |
+| Formalización | `skilled/reasoning/symbolic_problem_schema.py` | Construye `SymbolicProblem` |
+| Router | `skilled/reasoning/semantic_router.py` | Clasifica intención estructural |
+| Grafos | `skilled/reasoning/networkx_wrapper.py` | Ciclos, DAG, orden topológico |
+| Restricciones | `skilled/reasoning/z3_solver_integration.py` | SAT/UNSAT, asignaciones |
+| Reglas | `skilled/reasoning/pydatalog_integration.py` | Hechos, reglas, bindings |
+
+## Plugin Hermes
+
+```text
+agents/hermes/plugins/neurosymbolic-integration/
+```
+
+Declara:
+
+```yaml
+provides_hooks:
+  - pre_llm_call
+```
+
+## Estados de resultado
+
+```text
+success
+skipped
+error
+formalization_error
+human_review
+```
+
+Solo `success` debe inyectarse como evidencia determinista al LLM.
+
+## Brechas
+
+Todavía falta:
+
+```text
+FactStore
+RuleStore
+EntityIdentityResolver
+ContradictionEngine
+ReasoningTraceStore
+HybridPlanner
+```
+
+Esas piezas convertirían el razonamiento por consulta en conocimiento lógico persistente.
