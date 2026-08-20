@@ -1,286 +1,234 @@
-# Documentation Management System
+# ai-ecosystem
 
-## 📋 Overview
+Workspace experimental de **Hermes Agent + Claude Code** orientado a agentes, memoria estructural y razonamiento neurosimbólico.
 
-This document contains guidelines for documentation updates, including prompts modifications, README changes, and automation setup for ensuring consistent and automated documentation updates when making significant changes.
+El estado actual del proyecto ya no es solo una colección de scripts: incluye un núcleo funcional que puede detectar problemas simbólicos, formalizarlos y enrutar la consulta hacia motores reales de razonamiento antes de que responda el LLM.
 
-## 📋 System Prompt Modifications
+## Estado actual
 
-### Automated Documentation Updates
+| Área | Estado |
+|---|---|
+| Hermes Agent | Integrado como runtime/orquestador principal |
+| Claude Code | Configuración y hooks de apoyo para trabajo sobre el repo |
+| Plugin neurosimbólico Hermes | Implementado mediante `pre_llm_call` |
+| Z3 | Implementado para restricciones y satisfacibilidad |
+| PyDatalog | Implementado para reglas e inferencia lógica |
+| NetworkX | Implementado para grafos, ciclos y orden topológico |
+| Semantic Router / ProblemExtractor | Implementado para seleccionar modo/motor |
+| Combined mode | Implementado de forma básica para combinar motores |
+| Human review | Implementado para ambigüedad o falta de certeza simbólica |
+| CBM / codebase-memory-mcp | Integrado como memoria estructural del código |
+| Kùzu + LlamaIndex | Integrado como grafo/document knowledge layer |
+| Base lógica persistente tipo Quixote/Kappa | Pendiente |
+| Identidad persistente de objetos | Pendiente |
+| Truth maintenance / contradicciones persistentes | Pendiente |
+| Trazas históricas de razonamiento | Pendiente |
 
-**When to update documentation:**
-- When adding new skills or components
-- When making significant changes to existing components
-- When changes affect the architecture or workflow
-- When fixing bugs in core components
+## Arquitectura resumida
 
-**Automated triggers:**
-```bash
-# Hook system to automatically update documentation
-npx @hermes/cli@latest hooks trigger --type documentation-update
+```text
+Usuario
+  ↓
+Hermes Agent / Claude Code
+  ↓
+pre_llm_call hook
+  ↓
+ProblemExtractor / Semantic Router
+  ↓
+SymbolicProblem
+  ↓
+┌──────────────┬──────────────┬──────────────┐
+│ NetworkX     │ Z3           │ PyDatalog    │
+│ grafos       │ restricciones│ reglas       │
+└──────────────┴──────────────┴──────────────┘
+  ↓
+Evidencia estructurada
+  ↓
+LLM responde con contexto simbólico
 ```
 
-**Manual triggers for documentation updates:**
-1. Run `./generate-specs.sh` to generate OpenSpec specifications
-2. Update README.md with new section for documentation practices
-3. Update CLAUDE.md with system prompt modifications
-4. Verify all documentation is current and complete
+## Componentes principales
 
-## 📋 Key Documentation Files
+### 1. Núcleo neurosimbólico
 
-| File | Purpose | Update Frequency | Check Method |
-|------|---------|------------------|--------------|
-| README.md | Project overview and documentation | After significant changes | Manual review |
-| CLAUDE.md | System prompts and rules | After prompt modifications | Automated validation |
-| .openspec/specs/ | OpenSpec specifications | After code changes | Automated validation |
-| skills/*/SKILL.md | Individual skill documentation | After skill changes | Automated validation |
-| CHANGELOG.md | Change history | With each release | Automated with hooks |
+Ubicación principal:
 
-## 📋 Automation Setup
-
-### Automated validation
-```bash
-# Validate all documentation
-./validate-documentation.sh
-
-# Auto-generate OpenSpec specs
-./generate-specs.sh
-
-# List all specs
-./list-all-specs.sh
+```text
+skilled/reasoning/
 ```
 
-### Automated hooks
-```bash
-# Trigger documentation updates after task completion
-npx @hermes/cli@latest hooks post-task --task-id "[task-id]" --type documentation-update
+Archivos clave:
 
-# Run health checks
-orchestrator-main "health-check" --documentation
+```text
+neuro_symbolic_engine.py
+symbolic_problem_schema.py
+semantic_router.py
+z3_solver_integration.py
+pydatalog_integration.py
+networkx_wrapper.py
+hermes_integration.py
 ```
 
-### Validation commands
-- `./test-documentation.sh` - Validate README updates
-- `./validate-skills.sh` - Validate skill documentation
-- `./validate-specs.sh` - Validate OpenSpec specifications
+Funciones principales:
 
-## 📋 Best Practices
+- Formalizar consultas en `SymbolicProblem`.
+- Elegir modo: `constraints`, `graphs`, `logic`, `combined` o `none`.
+- Ejecutar motores reales.
+- Rechazar formalizaciones ambiguas o no verificables.
+- Generar evidencia estructurada para Hermes/LLM.
 
-### Documentation update workflow
-1. **Identify**: Recognize when documentation needs updates
-2. **Update**: Modify relevant documentation files
-3. **Verify**: Run validation scripts
-4. **Commit**: Use clear commit messages
+### 2. Plugin Hermes
 
-### Documentation commit messages
-- `docs: update README - added automated documentation section`
-- `docs: update CLAUDE.md - added system prompt modifications`
-- `docs: update README - added new documentation section`
-- `docs: update orchestrator-main - added health check documentation`
+Ubicación:
 
-### Validation
-Always run:
-```bash
-pnpm run test
-./generate-specs.sh
-./list-all-specs.sh
+```text
+agents/hermes/plugins/neurosymbolic-integration/
 ```
 
-## 📋 Testing Documentation
+Función:
 
-### Test documentation updates
-```bash
-# Test README updates
-test-readme-updates.sh
+- Registra un hook `pre_llm_call`.
+- Intercepta consultas del usuario.
+- Ejecuta razonamiento simbólico cuando corresponde.
+- Inyecta evidencia antes de la llamada al LLM.
 
-# Test documentation structure
-./test-docs-structure.sh
+### 3. Memoria y grafo de conocimiento
 
-# Validate OpenSpec
-./validate-specs.sh
+Capas disponibles:
+
+```text
+CBM / codebase-memory-mcp
+KùzuDB
+LlamaIndex PropertyGraphIndex
+Knowledge Broker
+Obsidian bridge
+Hermes memory
 ```
 
-### Verification commands
-- `./verify-documentation.sh` - Complete documentation validation
-- `./update-documentation.sh` - Automated documentation update
-- `./check-documentation.sh` - Check if documentation is up-to-date
+Estado: hay varias piezas de memoria estructural, pero todavía falta una **base lógica canónica** que unifique hechos, reglas, fuentes, versiones, contradicciones e identidad de entidades.
 
-## 📋 Previous Changes
+### 4. Política y control humano
 
-### Pending changes:
-1. ✅ Updated README.md with documentation management section
-2. ✅ Updated CLAUDE.md with system prompt modifications
-3. ✅ Created scripts for documentation automation
-4. ✅ Added validation and testing scripts
+Ubicación:
 
-### Changes applied:
-1. ✅ Updated README.md with comprehensive documentation practices
-2. ✅ Updated CLAUDE.md with system prompt modifications
-3. ✅ Added documentation update workflow and automation setup
-
-## 📋 Future enhancements
-
-1. **Add JSDoc comments** to skill documentation
-2. **Implement documentation linting** scripts
-3. **Create automated documentation preview** system
-4. **Add documentation templates** for quick updates
-5. **Implement documentation versioning** system
-
-## 📋 Usage examples
-
-```bash
-# Update documentation after making changes
-./update-documentation.sh
-
-# Validate documentation
-./validate-documentation.sh
-
-# Test documentation
-./test-documentation.sh
-
-# Quick documentation check
-./quick-docs-check.sh
+```text
+src/reasoning/
 ```
 
-## 📋 Conclusion
+Incluye:
 
-The documentation management system ensures consistent updates, validation, and maintenance of all project documentation. By automating documentation updates and providing clear workflows, we maintain high-quality documentation that reflects the current state of the project.
-
-## 📋 Key files for documentation management
-
-| File | Purpose |
-|------|---------|
-| README.md | Project overview and documentation management | 
-| CLAUDE.md | System prompts and rules for documentation management | 
-| scripts/ | Documentation automation scripts | 
-| .openspec/specs/ | OpenSpec specifications for documentation | 
-| skills/ | Individual skill documentation | 
-| CHANGELOG.md | Documentation change history |
-
-## 📋 Next steps
-
-1. Add JSDOc comments to skills
-2. Implement documentation linting
-3. Create documentation templates
-4. Add documentation versioning
-5. Implement automated documentation preview
-
-## 📋 Contact
-
-For documentation issues or questions, contact the documentation team.
-
-## 📋 Documentation update process
-
-### Update process
-1. Identify when documentation needs to be updated
-2. Update the relevant documentation files
-3. Run validation scripts
-4. Commit changes with clear messages
-
-### Validation process
-1. Run validation scripts
-2. Check that all specifications are current
-3. Verify that README is accurate and complete
-4. Ensure that all skills are documented correctly
-
-## 📋 Summary
-
-The documentation management system ensures that documentation is kept up-to-date and accurate. By automating documentation updates and providing clear workflows, we maintain high-quality documentation that reflects the current state of the project.
-
-## 📋 Key Takeaways
-
-1. Always update documentation when making significant changes
-2. Use automated validation scripts to verify documentation
-3. Maintain a clear documentation update workflow
-4. Keep documentation up-to-date and accurate
-
-## 📋 Best practices for documentation
-
-1. Update documentation before running tests
-2. Use clear and consistent commit messages
-3. Follow the documentation update workflow
-4. Validate documentation after updates
-5. Keep documentation up-to-date and accurate
-
-## 📋 Common issues and solutions
-
-### Issue: Documentation not up-to-date
-**Solution**: Run the documentation update scripts regularly and ensure that the documentation is validated before committing.
-
-### Issue: Tests failing due to documentation
-**Solution**: Update the documentation to reflect the current state of the project and run the validation scripts to ensure that the documentation is correct.
-
-### Issue: Validation scripts failing
-**Solution**: Check the validation scripts for errors and fix them. Then, run the validation scripts again to ensure that they pass.
-
-### Issue: Documentation not being updated
-**Solution**: Ensure that the documentation update hooks are configured correctly and that they are being triggered automatically when changes are made.
-
-## 📋 Next steps
-
-1. Add JSDOc comments to skills
-2. Implement documentation linting scripts
-3. Create documentation templates
-4. Add documentation versioning
-5. Implement automated documentation preview
-
-## 📋 Testing the documentation
-
-### Testing documentation updates
-```bash
-# Test README updates
-test-readme-updates.sh
-
-# Test documentation structure
-./test-docs-structure.sh
-
-# Validate OpenSpec
-./validate-specs.sh
+```text
+contracts.py
+policy_engine.py
+policies/safety.yaml
 ```
 
-### Verify documentation
-```bash
-# Verify documentation
-./verify-documentation.sh
+Función:
 
-# Update documentation
-./update-documentation.sh
+- Definir contratos para tareas, decisiones, evidencias, revisión humana y auditoría.
+- Evaluar políticas YAML con precedencia: `DENY > REQUIRE_HUMAN > UNKNOWN > ALLOW`.
 
-# Check documentation
-./check-documentation.sh
-
-# Quick documentation check
-./quick-docs-check.sh
-```
-
-## 📋 Documentation examples
+## Instalación básica
 
 ```bash
-# Example: Update orchestrator-main documentation
-# 1. Identify changes made to orchestrator-main
-# 2. Update documentation
-# 3. Run validation scripts
-# 4. Commit changes
-
-# Example: Documentation update workflow
-# 1. Identify when documentation needs to be updated
-# 2. Update the relevant documentation files
-# 3. Run validation scripts
-# 4. Commit changes with clear messages
+cd ~/ai-ecosystem
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-## 📋 Documentation management tips
+Dependencias principales actuales:
 
-1. **Consistent format**: Use consistent markdown formatting across all documentation files
-2. **Update frequently**: Update documentation frequently, especially after making significant changes
-3. **Automate when possible**: Use automation scripts to update documentation when possible
-4. **Validate consistently**: Run validation scripts regularly to ensure documentation is accurate
-5. **Keep documentation up-to-date**: Update documentation regularly to reflect the current state of the project
+```text
+python-dotenv==1.2.2
+llama-index==0.14.23
+llama-index-llms-openai==0.7.10
+llama-index-embeddings-openai==0.6.0
+llama-index-graph-stores-kuzu==0.9.1
+kuzu==0.11.3
+```
 
-## 📋 Documentation best practices
+Además, el entorno Hermes debe tener disponibles los paquetes de razonamiento:
 
-1. **Update documentation before running tests**: This ensures that the tests are testing the correct functionality
-2. **Use clear commit messages**: This helps other team members understand what changes were made
-3. **Follow the documentation update workflow**: This ensures that all changes are documented consistently
-4. **Validate documentation after updates**: This ensures that the documentation is accurate
-5. **Keep documentation up-to-date**: This ensures that the documentation reflects the current state of the project
+```text
+networkx
+z3-solver
+pyDatalog
+```
+
+## Comandos útiles
+
+### Pruebas neurosimbólicas reales
+
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_neurosymbolic_corrected.py
+```
+
+### Pruebas del semantic router
+
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
+```
+
+### Verificar plugin Hermes neurosimbólico
+
+```bash
+npm run test:hermes-cli
+```
+
+### CBM
+
+```bash
+pnpm run cbm:install
+pnpm run cbm:index
+QUERY="neuro_symbolic" pnpm run cbm:search
+QUERY="reasoning" pnpm run cbm:graph
+```
+
+Nota: el script raíz `npm test` puede no representar toda la suite real. Para validación técnica, usar los comandos explícitos de `pytest` y los scripts de verificación correspondientes.
+
+## Qué falta para el siguiente salto
+
+El proyecto ya tiene motores neurosimbólicos básicos. El siguiente salto no es agregar otro solver, sino construir una capa superior:
+
+```text
+Base lógica persistente
++ hechos versionados
++ reglas persistentes
++ identidad de entidades
++ contradicciones
++ trazas históricas de razonamiento
++ planificación híbrida real
+```
+
+Equivalente conceptual con el proyecto japonés FGCS:
+
+| FGCS/ICOT | Equivalente actual en ai-ecosystem | Estado |
+|---|---|---|
+| PIMOS | Hermes + hooks | Parcial |
+| HELIOS | combined mode + varios motores | Parcial |
+| MGTP | Z3/PyDatalog como motores parciales | Parcial |
+| Kappa | Kùzu/CBM/Knowledge Broker | Parcial |
+| Quixote | SymbolicProblem + grafo + reglas | Muy parcial |
+| HELIC-II | Casos + debate + reglas | Pendiente |
+
+## Documentación principal
+
+```text
+ARCHITECTURE.md          Arquitectura técnica vigente
+SYSTEM_BLUEPRINT.md      Auditoría/blueprint del sistema
+CLAUDE.md                Reglas operativas para Claude Code/Hermes
+docs/README.md           Índice documental
+docs/CBM_INTEGRATION.md  Integración CBM
+docs/integration_summary.md  Resumen de verificación CBM/Hermes
+KNOWLEDGE_BROKER.md      Capa de broker de conocimiento
+```
+
+## Principio de diseño
+
+Este proyecto busca avanzar desde un asistente LLM con herramientas hacia un sistema híbrido donde:
+
+- el LLM interpreta lenguaje y coordina;
+- los motores simbólicos verifican restricciones, reglas y grafos;
+- la memoria estructural recupera contexto;
+- y las futuras capas persistentes convierten resultados en conocimiento reutilizable.
