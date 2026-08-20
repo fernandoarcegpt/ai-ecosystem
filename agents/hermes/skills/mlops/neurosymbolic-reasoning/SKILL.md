@@ -1,54 +1,117 @@
 ---
 name: neurosymbolic-reasoning
-description: Integración de razonamiento neurosimbólico en Hermes con auto‑activación basada en detección automática de patrones.
-version: 1.2.0
-tags: [neurosymbolic, reasoning, hermes, networkx, pydatalog, z3, symbolic-ai, auto-detection, semantic-router]
+description: Razonamiento neurosimbólico en Hermes con formalización automática, motores reales y evidencia estructurada.
+version: 1.3.0
+tags: [neurosymbolic, reasoning, hermes, networkx, pydatalog, z3, symbolic-ai, semantic-router, human-review]
 ---
 
-# Razonamiento Neurosimbólico en Hermes
+# Neurosymbolic Reasoning
 
-Sistema de razonamiento simbólico integrado en Hermes que se activa automáticamente mediante detección de patrones.
+Skill operativa para usar el núcleo neurosimbólico de `ai-ecosystem` desde Hermes.
 
-## Motores y casos de uso
-| Motor | Uso |
-|-------|-----|
-| NetworkX | Análisis de grafos (dependencias, ciclos). |
-| PyDatalog | Inferencia lógica (reglas, hechos). |
-| Z3 | Restricciones y planificación. |
+## Estado actual
 
-## Flujo de trabajo
-```python
-# Detección automática sin marcadores
-from skilled.reasoning.hermes_integration import hermes_auto_detect_and_trigger
-evidence = hermes_auto_detect_and_trigger(
-    "Planificar despliegue con dependencias",
-    {"constraints": ["A antes que B"], "relations": [("A","B")]}
-)
-if evidence:
-    # Integrar evidencia en la respuesta de Hermes
-    context["symbolic_evidence"] = evidence
+Implementado:
+
+- Formalización mediante `SymbolicProblem`.
+- Selección automática de modo/motor.
+- NetworkX para grafos.
+- Z3 para restricciones.
+- PyDatalog para reglas.
+- Modo `combined` básico.
+- Ruta `human_review` para ambigüedad.
+- Integración con Hermes mediante `pre_llm_call`.
+
+Pendiente:
+
+- Base lógica persistente.
+- Identidad canónica de entidades.
+- Truth maintenance.
+- Trazas históricas persistentes.
+- Razonamiento basado en casos.
+
+## Archivos principales
+
+```text
+skilled/reasoning/neuro_symbolic_engine.py
+skilled/reasoning/symbolic_problem_schema.py
+skilled/reasoning/semantic_router.py
+skilled/reasoning/networkx_wrapper.py
+skilled/reasoning/z3_solver_integration.py
+skilled/reasoning/pydatalog_integration.py
+skilled/reasoning/hermes_integration.py
 ```
 
-## Patrones detectados
-- **Dependencias**: `dependencias`, `dependencia`, `before`, `after`.
-- **Restricciones**: `constraint`, `restricción`, `limit`, `limitación`.
-- **Secuencias**: `sequence`, `orden`, `step`.
-- **Reglas**: `rule`, `regla`, `if-then`.
+## Motores
 
-## Integración con Hermes
-- **Hooks**: `on_task_received` llama a `hermes_auto_detect_and_trigger`.
-- **Interceptores**: Añadir `context["symbolic_evidence"]` si se detecta.
-- **Respuesta**: `integrate_result_with_hermes_response(evidence)`.
+| Motor | Uso |
+|---|---|
+| NetworkX | dependencias, ciclos, DAG, orden topológico |
+| Z3 | restricciones, asignación, satisfacibilidad |
+| PyDatalog | hechos, reglas, inferencia |
+| combined | ejecución básica de varios motores |
+| human_review | ambigüedad o información insuficiente |
 
-## Pitfalls
-- No asumir que la detección siempre genera evidencia; verificar que `evidence` no sea None.
-- Mantener el contexto actualizado; patrones basados en datos obsoletos pueden generar falsos positivos.
-- No confiar en la solución sin revisar, especialmente con Z3; validar resultados críticos.
-+ Asegurarse de que el número de pruebas sea exacto y que las soluciones Z3 cumplan con las restricciones de asignación (máximo dos tareas por persona, sin conflictos entre A y B). Validar que las salidas de Z3 satisfacen todas las restricciones independientemente del motor.
+## Flujo real
 
-## Referencias rápidas
-- `references/architecture.md` – Arquitectura completa.
-- `references/engine-comparison.md` – Comparativa de motores.
-- `references/integration-patterns.md` – Patrones de integración.
+```text
+usuario
+→ Hermes pre_llm_call
+→ HermesSymbolIntegration
+→ ProblemExtractor
+→ SymbolicProblem
+→ motor recomendado
+→ evidencia estructurada
+→ contexto para LLM
+```
 
-> **Nota de estilo**: Documentación concisa y directa; evite frases extensas.
+## Uso programático
+
+```python
+from reasoning.hermes_integration import hermes_auto_detect_and_reason
+
+context = hermes_auto_detect_and_reason(
+    "Reparte A,B,C entre Ana y Luis. Máximo una tarea por persona.",
+    {}
+)
+
+if context:
+    print(context)
+```
+
+## Validación
+
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_neurosymbolic_corrected.py
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
+npm run test:hermes-cli
+```
+
+## Reglas de uso
+
+- No afirmar que hubo razonamiento simbólico si el resultado fue `None`, `skipped`, `human_review`, `formalization_error` o `error`.
+- No contradecir evidencia determinista con una respuesta LLM salvo que se señale error de formalización.
+- No tratar `combined` como planificación cognitiva completa; actualmente es ejecución combinada básica.
+- No asumir persistencia de hechos/reglas si no existe un store explícito.
+
+## Relación con FGCS
+
+| FGCS | Equivalente actual | Estado |
+|---|---|---|
+| HELIOS | varios motores cooperando | Parcial |
+| PIMOS | Hermes hook/orquestación | Parcial |
+| MGTP | Z3/PyDatalog como inferencia parcial | Parcial |
+| Kappa/Quixote | futura base lógica persistente | Pendiente |
+
+## Próximo objetivo
+
+Diseñar:
+
+```text
+CanonicalLogicalKnowledgeBase
+  ├── FactStore
+  ├── RuleStore
+  ├── EntityIdentityResolver
+  ├── ContradictionEngine
+  └── ReasoningTraceStore
+```
