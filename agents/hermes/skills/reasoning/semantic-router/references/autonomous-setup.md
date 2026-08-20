@@ -1,75 +1,77 @@
-# Autonomous Setup Patterns for Semantic Router
+# Autonomous Setup
 
-This document captures patterns for setting up the Semantic Router in automated environments without interactive prompts.
+## Objetivo
 
-## Pattern 1: Local Skill Installation
+Permitir que Hermes use razonamiento neurosimbólico automáticamente cuando exista estructura formalizable en la consulta.
 
-When `hermes skills install` fails with local paths:
+## Activación principal
 
-```bash
-# Create directory
-mkdir -p ~/.hermes/skills/reasoning
+La activación recomendada ocurre mediante:
 
-# Copy skill directly
-cp /path/to/semantic_router.py ~/.hermes/skills/reasoning/
-
-# Verify
-hermes skills list | grep semantic_router
+```text
+pre_llm_call
 ```
 
-## Pattern 2: Non-Interactive Configuration
+en:
 
-```bash
-# Set language
-hermes config set display.language español
-
-# Set model
-hermes config set model.default openrouter/free
-hermes config set model.provider openrouter
-
-# Disable interactive prompts
-hermes config set approvals.mode off
-
-# Verify
-hermes doctor
+```text
+agents/hermes/plugins/neurosymbolic-integration/
 ```
 
-## Pattern 3: Credential Setup
+## Flujo
 
-```bash
-# Add to .env
-echo "OPENROUTER_API_KEY=your_key" >> ~/.hermes/.env
-
-# Check
-hermes doctor | grep "API key"
+```text
+mensaje del usuario
+→ hook pre_llm_call
+→ integración simbólica
+→ ProblemExtractor
+→ SymbolicProblem
+→ motor recomendado
+→ evidencia
+→ contexto para LLM
 ```
 
-## Pattern 4: Validation Script
+## Condición de inyección
 
-```bash
-#!/bin/bash
-# validate-semantic-router.sh
+Solo inyectar contexto si:
 
-# Run tests
-pytest tests/test_semantic_router/ -v
-
-# Test classification
-python3 -c "
-from skilled.reasoning.semantic_router import classify_task_structure
-result = classify_task_structure('Asigna diez usuarios... sin información de costos.')
-assert result['mode'] == 'human_review'
-assert result['confidence'] == 0.8
-print('Validation passed')
-"
+```text
+status == success
 ```
 
-## Pitfalls
+No inyectar si:
 
-- Don't use `hermes skills install /local/path` - it won't work
-- Don't hand-edit config.yaml - use `hermes config set`
-- Don't chain hermes commands that require TTY with `&&`
-- Don't put secrets in config.yaml - use .env only
+```text
+human_review
+formalization_error
+error
+skipped
+```
 
-## Context
+## Motores automáticos
 
-This pattern emerged from a session where the user requested: "hazlo tu mismo sin mi intervención" (do it yourself without my intervention). The setup successfully configured Spanish language, OpenRouter model, installed the semantic-router skill via filesystem copy, ran tests, and validated that uncertain inputs correctly trigger human_review mode.
+```text
+NetworkX  → graph
+Z3        → constraints
+PyDatalog → logic
+combined  → hybrid
+none      → llm_only / human_review
+```
+
+## Validación
+
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_neurosymbolic_corrected.py
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
+npm run test:hermes-cli
+```
+
+## Límite actual
+
+La autonomía actual es por consulta. Todavía falta memoria lógica persistente para que el sistema aprenda hechos/reglas de forma acumulativa.
+
+Próxima capa recomendada:
+
+```text
+CanonicalLogicalKnowledgeBase
+```
