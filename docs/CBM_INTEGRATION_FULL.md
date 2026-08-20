@@ -1,53 +1,127 @@
-## 📁 Integración Nativa CBM ↔ Hermes - Coexistente con KB, Sin Duplicación
+# CBM Integration Full Guide
 
-### Estado Actual de la Integración CBM–Hermes
+## Propósito
 
-Tras la verificación exhaustiva, todos los componentes críticos están funcionando correctamente:
+Esta guía describe el rol de `codebase-memory-mcp` dentro de `ai-ecosystem`.
 
-1. **Registro del Hook `pre_llm_call`**  
-   - Verificado en `/home/fernando/ai-ecosystem/.hooks/.hooks`  
-   - Contiene: `pre_llm_call: 1` (activado)
+CBM es una capa de memoria estructural del código. Sirve para navegar y consultar el repositorio, pero no reemplaza los motores neurosimbólicos ni la futura base lógica persistente.
 
-2. **Configuración de Auto-Index**  
-   - `codebase-memory-mcp config get auto_index` → `true`  
-   - Límite restablecido a valor por defecto (50000)  
-   - directorios de caché e índice configurados correctamente
+## Arquitectura relacionada
 
-3. **Índice del Proyecto `ai-ecosystem`**  
-   - `codebase-memory-mcp cli list_projects` muestra:  
-     - Proyecto: `ai-ecosystem`  
-     - ID: `es1729c`  
-     - Estado: indexado (nodos=118, aristas=252 tras prueba de auto_watch)
+```text
+Repositorio ai-ecosystem
+  ↓
+codebase-memory-mcp
+  ↓
+Índice de código / grafo estructural
+  ↓
+Hermes / Claude Code
+  ↓
+contexto para tareas de desarrollo
+```
 
-4. **Funcionalidad de Auto-Watch**  
-   - `codebase-memory-mcp config get auto_watch` → `true`  
-   - Verificado mediante creación/modificación de archivo temporal:  
-     - Antes: nodos=117, aristas=251  
-     - Después: nodos=118, aristas=252 (actualización automática sin reindexado manual)
+En paralelo, el razonamiento simbólico ocurre en:
 
-5. **Consulta Directa a CBM**  
-   - `codebase-memory-mcp cli question --project "ai-ecosystem" --question "What is the codebase architecture?"`  
-   - Retorna descripción estructural actualizada del proyecto  
-   - Funciona sin intervención manual de CLI
+```text
+skilled/reasoning/
+  ├── symbolic_problem_schema.py
+  ├── neuro_symbolic_engine.py
+  ├── semantic_router.py
+  ├── networkx_wrapper.py
+  ├── z3_solver_integration.py
+  └── pydatalog_integration.py
+```
 
-6. **Integración Transparente con Hermes**  
-   - El hook `pre_llm_call` invoca CBM automáticamente antes de cada llamada al LLM  
-   - Hermes utiliza directamente la respuesta de CBM (sin duplicación en OKF)  
-   - Verificado mediante revisión de logs: no se copian datos al KnowledgeFrontend
+## Instalación
 
-### � ✅ Conclusión
+```bash
+pnpm run cbm:install
+```
 
-Todas las condiciones para una integración completa y no duplicada están satisfechas:
-- Hermes invoca CBM de forma automática vía `pre_llm_call`
-- El índice se mantiene actualizado mediante `auto_index` y `auto_watch`
-- Las consultas estructurales se resuelven usando el índice CBM actualizado
-- No hay duplicación de datos entre CBM y otros sistemas de memoria (OKF, KB básico)
-- Todos los componentes de retrocompatibilidad funcionan normalmente:
-  - Memoria básica de Hermes
-  - KnowledgeFrontend (OKF)
-  - KnowledgeBroker (operaciones manuales)
-  - Policy Engine
-  - Integración con Claude Code
-  - Sistema de memoria nativo de Hermes
+## Indexación
 
-**La integración CBM está plenamente operativa y lista para uso productivo.**
+```bash
+pnpm run cbm:index
+```
+
+Reindexar cuando:
+
+- se agreguen archivos relevantes;
+- se muevan módulos;
+- se actualicen componentes neurosimbólicos;
+- una búsqueda devuelva resultados desactualizados.
+
+## Búsqueda de código
+
+```bash
+QUERY="ProblemExtractor" pnpm run cbm:search
+```
+
+## Búsqueda de grafo
+
+```bash
+QUERY="reasoning" pnpm run cbm:graph
+```
+
+## Flujo recomendado de trabajo
+
+Antes de editar una pieza del sistema:
+
+```bash
+QUERY="componente" pnpm run cbm:search
+QUERY="componente" pnpm run cbm:graph
+```
+
+Luego revisar archivos manualmente y ejecutar pruebas específicas.
+
+## Validación complementaria
+
+CBM no valida comportamiento. Para validar comportamiento usar:
+
+```bash
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_neurosymbolic_corrected.py
+PYTHONPATH=.:./skilled python3 -m pytest -q tests/test_semantic_router
+npm run test:hermes-cli
+```
+
+## Qué aporta CBM
+
+- Localización rápida de archivos.
+- Búsqueda de patrones.
+- Navegación de relaciones de código.
+- Contexto estructural para Claude Code.
+- Menos riesgo de crear duplicados.
+
+## Qué no aporta CBM
+
+- No ejecuta Z3.
+- No ejecuta PyDatalog.
+- No ejecuta NetworkX como motor simbólico de usuario.
+- No conserva hechos lógicos persistentes.
+- No resuelve contradicciones.
+- No sustituye pruebas.
+
+## Relación con Kùzu y Knowledge Broker
+
+| Capa | Rol |
+|---|---|
+| CBM | memoria estructural del código |
+| Kùzu | grafo documental/conocimiento |
+| LlamaIndex | ingesta/consulta sobre grafo |
+| Knowledge Broker | intermediario de conocimiento |
+| Núcleo neurosimbólico | razonamiento determinista |
+
+## Próximo paso arquitectónico
+
+La integración futura debería permitir:
+
+```text
+CBM hit
+→ entidad de código
+→ relación con archivo/fuente
+→ hecho persistente
+→ posible regla o dependencia
+→ traza de razonamiento
+```
+
+Esto conectaría CBM con una futura `CanonicalLogicalKnowledgeBase`.
