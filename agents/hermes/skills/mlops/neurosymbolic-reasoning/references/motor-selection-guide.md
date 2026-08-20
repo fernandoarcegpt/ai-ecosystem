@@ -1,69 +1,97 @@
-# Guía para Elegir el Motor de Razonamiento Optimizado
+# Guía de selección de motor
 
-Utilice esta guía para determinar cómo el sistema selecciona automáticamente el motor simbólico adecuado basándose en el contexto de la tarea.
+## Selección rápida
 
-## Criterios de Selección
+| Señal en la consulta | Motor |
+|---|---|
+| dependencias, flechas, ciclos, rutas | NetworkX |
+| máximo, mínimo, límite, asignación | Z3 |
+| hechos, reglas, parentesco, inferencia | PyDatalog |
+| reglas + restricciones + grafos | combined |
+| datos faltantes o relación ambigua | human_review |
+| resumen, traducción, redacción | llm_only |
 
-1. **Complejidad del Problema**
-   - Problemas simples de dependencias -> NetworkX
-   - Reglas lógicas claras -> PyDatalog
-   - Optimizaciones con restricciones -> Z3
+## NetworkX
 
-2. **Requisitos Específicos**
-   - Detectación de ciclos -> NetworkX
-   - Validación de reglas lógicas -> PyDatalog
-   - Programación con restricciones SAT -> Z3
+Usar cuando el problema se pueda representar como grafo:
 
-3. **Enfoque de la Tarea**
-   - Análisis visual de redes -> NetworkX
-   - Inferencia deductiva -> PyDatalog
-   - Solución algorítmica -> Z3
-
-## Recomendaciones Core
-
-- Use 'combined' para problemas no estructurados
-- Prefiera PyDatalog para validación de reglas de negocio
-- Reserve Z3 para problemas con más de 10 variables interactuantes
-
-## Ejemplos Prácticos
-
-```python
-# Detectar ciclos en dependencias de microservicios
-if task == "Validar topología de microservicios":
-    context = {
-        "dependencies": {
-            "service_a": ["service_b"],
-            "service_b": ["service_c"],
-            "service_c": []
-        }
-    }
-    engine_preference = "networkx"
-
-# Validar criterios de elegibilidad para científicos
-if task == "Validar asistencias para investigación":
-    context = {
-        "facts": [("graduados", True), ("publicaciones", 15)],
-        "rules": [
-            {"name": "experto_basico", "head": "aprobado", "body": "(graduados & publicaciones >= 5)"}
-        ]
-    }
-    engine_preference = "pydatalog"
-
-# Programar asignación de equipos con restricciones horarias
-if task == "Optimizar distribución de equipos":
-    context = {
-        "variables": ["t1", "t2", "t3"],
-        "constraints": [
-            "t1 + t2 <= 8",
-            "t2 + t3 >= 6",
-            "t1 != t3"
-        ]
-    }
-    engine_preference = "z3"
+```text
+A -> B
+B -> C
+C -> A
 ```
 
-## Mantenimiento
+Preguntas típicas:
 
-- Este archivo se actualiza automáticamente cuando evoluciona el skill.
-- Mantenga los nombres de motores consistentes con el código.
-- Agregue nuevas entradas de motor al integrar nuevas herramientas.
+```text
+¿hay ciclos?
+¿cuál es el orden correcto?
+¿qué depende de qué?
+```
+
+## Z3
+
+Usar cuando hay restricciones simultáneas:
+
+```text
+máximo 2 tareas por persona
+A y B no pueden ir juntas
+x > 10
+x < 5
+```
+
+Preguntas típicas:
+
+```text
+¿existe solución?
+¿qué asignación cumple todo?
+¿las restricciones son contradictorias?
+```
+
+## PyDatalog
+
+Usar cuando hay hechos y reglas:
+
+```text
+parent(Alice,Bob)
+parent(Bob,Charlie)
+ancestor(X,Y) <= parent(X,Y)
+```
+
+Preguntas típicas:
+
+```text
+¿qué hechos se derivan?
+¿qué reglas aplican?
+¿qué bindings satisfacen la consulta?
+```
+
+## Combined
+
+Usar cuando el `SymbolicProblem` contiene varios tipos:
+
+```text
+relations + constraints
+facts + rules + constraints
+relations + rules
+```
+
+Advertencia: `combined` todavía no es un planificador cognitivo completo; ejecuta motores y resume resultados.
+
+## Human review
+
+Usar cuando la formalización puede ser engañosa.
+
+Ejemplo ambiguo:
+
+```text
+A depende de B
+```
+
+Sin contexto, puede significar varias cosas. No debe tratarse automáticamente como grafo técnico.
+
+## Regla final
+
+Si hay evidencia formalizable y el motor devuelve `success`, puede inyectarse al LLM.
+
+Si hay `human_review`, `formalization_error`, `error` o `skipped`, no presentar como conclusión determinista.
